@@ -1,0 +1,21 @@
+// Flat ocean plane at sea level with a gentle shader ripple. Cheap: one draw.
+
+import * as THREE from 'three';
+import { WORLD } from './terrain.js';
+
+export function buildWater() {
+  const geo = new THREE.PlaneGeometry(4000, 4000, 1, 1);
+  geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x3585a8,
+    roughness: 0.18,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.85,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.y = WORLD.seaLevel;
+  mesh.receiveShadow = true;
+  mesh.name = 'ocean';
+  return mesh;
+}
