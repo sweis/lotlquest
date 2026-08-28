@@ -404,6 +404,12 @@ function getState() {
     camPos: { x: camera.cam.position.x, y: camera.cam.position.y, z: camera.cam.position.z },
     orbit: { yawOffset: camera.orbit.yawOffset, pitch: camera.orbit.pitch, dist: camera.orbit.dist },
     timeOfDay: sky.timeOfDay,
+    // effective shadow-light direction (must track sunDirection exactly and
+    // never change with player position)
+    sunDir: (() => {
+      const d = sky.sun.position.clone().sub(sky.sun.target.position).normalize();
+      return { x: +d.x.toFixed(5), y: +d.y.toFixed(5), z: +d.z.toFixed(5) };
+    })(),
     walkTarget: s.walkTarget ? { ...s.walkTarget } : null,
     combat: {
       hp: combat.state.hp, maxHp: combat.maxHp(), tokens: combat.state.tokens,

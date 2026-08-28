@@ -56,6 +56,12 @@ export function buildSky(scene) {
 
   scene.fog = new THREE.Fog(0xd8e2ea, 140, 900);
 
+  // The TRUE sun direction, fixed by time of day and nothing else. The light's
+  // .position must never be normalized back into a direction — it carries the
+  // player-following frustum offset, and deriving direction from it makes the
+  // sun slew around as you walk (shadows sweep like a nearby lamp).
+  const sunDir = new THREE.Vector3(0, 1, 0);
+
   const api = {
     hemi, sun, skyDome,
     timeOfDay: 16.5,
@@ -65,13 +71,13 @@ export function buildSky(scene) {
       const dayT = THREE.MathUtils.clamp((h - 6) / 14, 0, 1);   // 6:00 → 20:00
       const elev = Math.sin(dayT * Math.PI) * 1.05;              // radians-ish
       const azim = THREE.MathUtils.lerp(-2.3, -0.6, dayT);
-      const dir = new THREE.Vector3(
+      sunDir.set(
         Math.cos(elev) * Math.sin(azim),
         Math.sin(elev),
         Math.cos(elev) * Math.cos(azim),
       );
-      sun.position.copy(dir).multiplyScalar(180);
-      skyMat.uniforms.sunDir.value.copy(dir);
+      sun.position.copy(sunDir).multiplyScalar(180).add(sun.target.position);
+      skyMat.uniforms.sunDir.value.copy(sunDir);
 
       const low = 1 - THREE.MathUtils.clamp(Math.sin(dayT * Math.PI) * 1.6, 0, 1); // 1 near dawn/dusk
       sun.color.setHSL(0.09, 0.55, THREE.MathUtils.lerp(0.72, 0.55, low));
@@ -85,14 +91,16 @@ export function buildSky(scene) {
       if (api.sceneFog) { api.sceneFog.color.copy(HORIZON); }
     },
     sceneFog: scene.fog,
-    // keep the fitted shadow frustum centred on the player; snap to texels to stop shimmer
+    sunDirection: sunDir, // read-only: the current true sun direction
+    // keep the fitted shadow frustum centred on the player; snap to texels to
+    // stop shimmer. Direction comes ONLY from sunDir — parallel rays, like a
+    // real sun, no matter where the frustum follows the player.
     updateShadowTarget(p) {
-      const dir = sun.position.clone().normalize();
       const texel = 110 / 2048 * 8;
       const tx = Math.round(p.x / texel) * texel;
       const tz = Math.round(p.z / texel) * texel;
       sun.target.position.set(tx, 0, tz);
-      sun.position.copy(dir).multiplyScalar(180).add(sun.target.position);
+      sun.position.copy(sunDir).multiplyScalar(180).add(sun.target.position);
       skyDome.position.set(p.x, 0, p.z); // dome follows so it never clips
     },
   };

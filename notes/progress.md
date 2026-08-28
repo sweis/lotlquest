@@ -1,5 +1,16 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-28 — v0.7.1: fix shadow drift while walking (Steve)
+
+- Steve: shadows swept rapidly when walking, "like the light is physically close".
+  Root cause: `updateShadowTarget` derived the sun direction by normalizing
+  `sun.position` — which already contained the player-following frustum offset, so
+  the effective light direction slewed toward the player every frame (a de facto
+  nearby point light). The true direction now lives in its own `sunDir` vector set
+  only by `setTimeOfDay`; the frustum follows the player strictly along it.
+- Regression guard: `getState().sunDir` reports the effective light direction —
+  verified bit-identical at spawn, after a 10s walk, and across the island.
+
 ## 2026-08-28 — v0.7: repo restructure + GitHub
 
 - Web build moved from `LotlQuest-ThreeJS/` to the repo root `/Users/saw/repos/lotlquest`
