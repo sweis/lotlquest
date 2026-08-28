@@ -1,5 +1,17 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-27 (late night) — v0.6: shop Leave fix + food market heals (Steve)
+
+- **Leave button bug**: clicking Leave closed the sheet, but the proximity check
+  reopened it the SAME frame — the reopen-block was only set on Esc. Now any close
+  (Leave / Esc / walking off) blocks reopening, per-shop (`shopBlockMode`), cleared
+  once Coal leaves that shop's radius. Verified with real clicks: closes, stays
+  closed, reopens on return.
+- **Food market shop**: walking up to the stalls opens a second shop mode — Kelp
+  Wrap (2 tokens, +1 heart), Berry Bowl (4, +2), Honey Cake (8, full heal). Buttons
+  disable at full hearts; sheet shows current hearts. Verified: hp 4→8 for 4 tokens.
+- `lotl.hurt(n)` debug hook; `lotl.openShop('market')`; `combat.buyFood`.
+
 ## 2026-08-27 (night) — v0.5: combat loop, shop, enterable houses, trails, minimap zoom (Steve)
 
 - **Bog slimes** (`src/world/monsters.js`): 14 hopping blobs, deterministic spawns away

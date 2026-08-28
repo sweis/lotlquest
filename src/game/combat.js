@@ -6,6 +6,12 @@ import { WORLD } from '../world/terrain.js';
 
 const SAVE_KEY = 'lotlquest-save-v1';
 
+export const FOOD = [
+  { id: 'food1', name: 'Kelp Wrap', desc: 'Crunchy and green. Restores 1 heart.', price: 2, heal: 2 },
+  { id: 'food2', name: 'Berry Bowl', desc: 'Foraged from the groves. Restores 2 hearts.', price: 4, heal: 4 },
+  { id: 'food3', name: 'Honey Cake', desc: 'The baker’s pride. Fully restores your hearts.', price: 8, heal: 99 },
+];
+
 export const CATALOG = [
   { id: 'sword1', kind: 'melee', tier: 1, name: 'Wooden Sword', desc: 'A sturdy branch, axolotl-sharpened. Damage 2.', price: 5 },
   { id: 'sword2', kind: 'melee', tier: 2, name: 'Iron Sword', desc: 'Forged in the armory. Damage 3.', price: 25 },
@@ -188,6 +194,17 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     return 'ok';
   }
 
+  function buyFood(id) {
+    const item = FOOD.find((f) => f.id === id);
+    if (!item) return 'unknown item';
+    if (state.hp >= maxHp()) return 'full health';
+    if (state.tokens < item.price) return 'not enough tokens';
+    state.tokens -= item.price;
+    state.hp = Math.min(maxHp(), state.hp + item.heal);
+    save(); onChange();
+    return 'ok';
+  }
+
   function setWeapon(w) {
     if (w === 'bow' && !state.bow) return;
     state.weapon = w;
@@ -200,5 +217,5 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     onChange();
   }
 
-  return { state, maxHp, update, tryAttack, damagePlayer, buy, setWeapon, setMonsters, respawn, dropTokens, save };
+  return { state, maxHp, update, tryAttack, damagePlayer, buy, buyFood, setWeapon, setMonsters, respawn, dropTokens, save };
 }

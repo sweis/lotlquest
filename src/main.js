@@ -129,9 +129,15 @@ function updateHUD() {
 combat = createCombat({ scene, coal, controller, field: fieldRef, onChange: updateHUD });
 combat.setMonsters(monsters);
 updateHUD();
-const shop = createShop(combat);
+// closing a shop (Leave, Esc, walking away) blocks reopening THAT shop until
+// Coal leaves its radius — otherwise proximity reopens the sheet next frame
+const shop = createShop(combat, (closedMode) => { shopBlockMode = closedMode; });
 document.getElementById('shopClose').addEventListener('click', () => shop.close());
-let shopReopenBlock = false;
+let shopBlockMode = null;
+const SHOP_SPOTS = [
+  { landmark: 'The Armory', mode: 'armory', r: 5.2 },
+  { landmark: 'Food Market', mode: 'market', r: 4.8 },
+];
 
 function onPlayerDeath() {
   setPhase('lost');
@@ -276,7 +282,7 @@ document.getElementById('playBtn').addEventListener('click', () => setPhase('pla
 document.getElementById('resumeBtn').addEventListener('click', () => setPhase('playing'));
 document.getElementById('helpClose').addEventListener('click', () => { helpEl.style.display = 'none'; });
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && shop.isOpen()) { shop.close(); shopReopenBlock = true; return; }
+  if (e.key === 'Escape' && shop.isOpen()) { shop.close(); return; } // close() blocks reopen itself
   if (e.key === 'Escape' && phase === 'playing') setPhase('paused');
   else if (e.key === 'Escape' && phase === 'paused') setPhase('playing');
   if (e.key === '?') helpEl.style.display = helpEl.style.display === 'block' ? 'none' : 'block';
@@ -324,13 +330,18 @@ function frame(now) {
   if (phase === 'playing') updateLandmarks();
   minimap.draw(controller.state);
 
-  // armory shop opens when Coal walks up to the door
+  // shops open when Coal walks up to their door/stalls
   if (phase === 'playing') {
-    const arm = village.landmarks.find((l) => l.name === 'The Armory');
-    const dArm = Math.hypot(controller.state.pos.x - arm.x, controller.state.pos.z - arm.z);
-    if (dArm < 5.2 && !shop.isOpen() && !shopReopenBlock) { shop.open(); controller.keys.clear(); }
-    if (dArm > 7) shopReopenBlock = false;
-    if (dArm > 7 && shop.isOpen()) shop.close();
+    for (const spot of SHOP_SPOTS) {
+      const lm = village.landmarks.find((l) => l.name === spot.landmark);
+      const d = Math.hypot(controller.state.pos.x - lm.x, controller.state.pos.z - lm.z);
+      if (shopBlockMode === spot.mode && d > spot.r + 2) shopBlockMode = null;
+      if (d < spot.r && !shop.isOpen() && shopBlockMode !== spot.mode) {
+        shop.open(spot.mode);
+        controller.keys.clear();
+      }
+      if (shop.mode() === spot.mode && d > spot.r + 2.5) shop.close();
+    }
   }
 
   // fade the house Coal is inside so the camera can see him
@@ -477,8 +488,10 @@ window.lotl = {
   release(code) { window.dispatchEvent(new KeyboardEvent('keyup', { code, cancelable: true })); },
   attack() { combat.tryAttack(); },
   giveTokens(n) { combat.state.tokens += n | 0; combat.save(); updateHUD(); },
+  hurt(n) { combat.damagePlayer(n | 0, controller.state.pos.x + 1, controller.state.pos.z); },
   buy(id) { const r = combat.buy(id); shop.render(); return r; },
-  openShop() { shop.open(); },
+  buyFood(id) { const r = combat.buyFood(id); shop.render(); return r; },
+  openShop(mode) { shop.open(mode); },
   closeShop() { shop.close(); },
   monsters: () => monsters,
   houses: () => village.fadeHouses.map((h) => ({ x: h.x, z: h.z, r: h.r })),

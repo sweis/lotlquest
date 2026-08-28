@@ -1,29 +1,39 @@
-// The armory shop: DOM sheet listing the catalog; opens when Coal walks up
-// to the armory door, closes on Leave / Esc / walking away.
+// Village shops in one sheet: the armory (weapons/armor) and the food market
+// (meals that heal). Opens when Coal walks up; closes on Leave / Esc /
+// walking away.
 
-import { CATALOG } from './combat.js';
+import { CATALOG, FOOD } from './combat.js';
 
-export function createShop(combat) {
+const TITLES = { armory: 'The Armory', market: 'Food Market' };
+
+export function createShop(combat, onClose) {
   const el = document.getElementById('shop');
   const itemsEl = document.getElementById('shopItems');
   const tokEl = document.getElementById('shopTok');
-  let open = false;
+  const titleEl = document.getElementById('shopTitle');
+  let mode = null; // null closed, else 'armory' | 'market'
 
   function render() {
-    tokEl.innerHTML = `You have <span class="coin"></span> <b>${combat.state.tokens}</b> tokens`;
+    titleEl.textContent = TITLES[mode] ?? '';
+    tokEl.innerHTML = `You have <span class="coin"></span> <b>${combat.state.tokens}</b> tokens` +
+      (mode === 'market' ? ` · ${combat.state.hp / 2}/${combat.maxHp() / 2} hearts` : '');
     itemsEl.innerHTML = '';
-    for (const item of CATALOG) {
-      const owned = combat.state[item.kind] >= item.tier;
+    const items = mode === 'market' ? FOOD : CATALOG;
+    for (const item of items) {
+      const owned = mode === 'armory' && combat.state[item.kind] >= item.tier;
+      const full = mode === 'market' && combat.state.hp >= combat.maxHp();
       const afford = combat.state.tokens >= item.price;
+      const enabled = !owned && !full && afford;
       const row = document.createElement('div');
       row.className = 'shopItem';
       row.innerHTML =
         `<div class="info"><b>${item.name}</b><span>${item.desc}</span></div>` +
-        `<button class="buy" ${owned || !afford ? 'disabled' : ''}>` +
-        (owned ? 'Owned' : `${item.price} ⬤`) + '</button>';
-      if (!owned && afford) {
+        `<button class="buy" ${enabled ? '' : 'disabled'}>` +
+        (owned ? 'Owned' : full ? 'Full' : `${item.price} ⬤`) + '</button>';
+      if (enabled) {
         row.querySelector('button').addEventListener('click', () => {
-          combat.buy(item.id);
+          if (mode === 'market') combat.buyFood(item.id);
+          else combat.buy(item.id);
           render();
         });
       }
@@ -32,9 +42,15 @@ export function createShop(combat) {
   }
 
   return {
-    open() { if (!open) { open = true; render(); el.style.display = 'block'; } },
-    close() { open = false; el.style.display = 'none'; },
-    isOpen: () => open,
+    open(m = 'armory') { mode = m; render(); el.style.display = 'block'; },
+    close() {
+      if (!mode) return;
+      const closed = mode;
+      mode = null; el.style.display = 'none';
+      if (onClose) onClose(closed);
+    },
+    isOpen: () => mode !== null,
+    mode: () => mode,
     render,
   };
 }
