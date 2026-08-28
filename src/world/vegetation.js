@@ -44,6 +44,7 @@ export function buildVegetation(field, seed) {
     if (slope > 1.6) continue;
     const ds = Math.hypot(x - WORLD.spawn.x, z - WORLD.spawn.z);
     if (ds < WORLD.spawnFlatR * 0.9) continue;
+    if ((WORLD.landmarkExclusions ?? []).some(e => Math.hypot(x - e.x, z - e.z) < e.r)) continue;
     // grove clustering: accept mostly where a low-freq mask is high
     const grove = fbm(x * 0.02 + 900, z * 0.02 + 900, 3, seed + 5);
     if (grove < 0.52 && rng() > 0.12) continue;
@@ -54,6 +55,7 @@ export function buildVegetation(field, seed) {
     const z = (rng() - 0.5) * WORLD.size * 0.95;
     const h = ground(x, z);
     if (h < WORLD.seaLevel - 0.5 || h > 6) continue; // coastal band
+    if ((WORLD.landmarkExclusions ?? []).some(e => Math.hypot(x - e.x, z - e.z) < e.r)) continue;
     rocks.push({ x, z, h, s: 0.4 + rng() * 1.3, r: rng() * Math.PI * 2 });
   }
 
@@ -103,5 +105,10 @@ export function buildVegetation(field, seed) {
   }
 
   group.userData.counts = { trees: trees.length, rocks: rocks.length };
+  // solid things you shouldn't ghost through: rock bodies + tree trunks
+  group.userData.obstacles = [
+    ...rocks.map((t) => ({ x: t.x, z: t.z, r: 0.75 * t.s })),
+    ...trees.map((t) => ({ x: t.x, z: t.z, r: 0.34 * t.s })),
+  ];
   return group;
 }

@@ -41,11 +41,77 @@ export function makeHeightField(seed) {
   WORLD.spawn = { x: 0, z: spawnZ };
   const spawnH = Math.max(rawHeightAt(0, spawnZ), WORLD.seaLevel + 1.6);
 
+  // ---- landmark site selection (deterministic, from the raw field) --------
+  // village: first flat-enough lowland pocket inland of spawn
+  let vSite = { x: 0, z: spawnZ + 30 };
+  for (let z = spawnZ + 26; z < spawnZ + 140; z += 4) {
+    const h = rawHeightAt(0, z);
+    if (h < 3.4 || h > 10) continue;
+    const spread = Math.max(
+      Math.abs(rawHeightAt(16, z) - h), Math.abs(rawHeightAt(-16, z) - h),
+      Math.abs(rawHeightAt(0, z + 16) - h), Math.abs(rawHeightAt(0, z - 16) - h));
+    if (spread < 3.5) { vSite = { x: 0, z }; break; }
+  }
+  const villageH = Math.min(Math.max(rawHeightAt(vSite.x, vSite.z), 3.6), 9);
+  WORLD.village = { x: vSite.x, z: vSite.z, r: 34, h: villageH };
+
+  // Hope of the Axolotls Hill: the most PROMINENT knoll near the village —
+  // a spot higher than its own surroundings, not a big-mountain flank
+  let hill = { x: vSite.x + 60, z: vSite.z + 40, score: -Infinity };
+  for (let a = 0; a < Math.PI * 2; a += 0.12) {
+    for (let r = 48; r <= 96; r += 6) {
+      const x = vSite.x + Math.sin(a) * r, z = vSite.z + Math.cos(a) * r;
+      const h = rawHeightAt(x, z);
+      if (h < 5 || h > 16) continue;
+      let nb = 0;
+      for (let k = 0; k < 4; k++) {
+        nb += rawHeightAt(x + Math.sin(k * 1.5708) * 15, z + Math.cos(k * 1.5708) * 15) / 4;
+      }
+      const score = (h - nb) * 3 + h * 0.3; // prominence first, height second
+      if (score > hill.score) hill = { x, z, score };
+    }
+  }
+  WORLD.hill = { x: hill.x, z: hill.z };
+
+  // kelp grounds: shallow water straight off the south beach
+  let kelp = { x: 0, z: spawnZ - 20 };
+  for (let z = spawnZ; z > -WORLD.size / 2; z -= 3) {
+    if (rawHeightAt(0, z) < WORLD.seaLevel - 0.9) { kelp = { x: 0, z: z - 8 }; break; }
+  }
+  WORLD.kelp = { x: kelp.x, z: kelp.z, r: 20 };
+
+  // hunting point: a high coastal brow far from the village
+  let hunt = { x: 0, z: -spawnZ, score: -Infinity };
+  for (let a = 0; a < Math.PI * 2; a += 0.08) {
+    let brow = null;
+    for (let r = 60; r < WORLD.islandRadius * 1.25; r += 4) {
+      const x = Math.sin(a) * r, z = Math.cos(a) * r;
+      const h = rawHeightAt(x, z);
+      if (h > 6) brow = { x, z, h };
+      else if (brow && h < WORLD.seaLevel) break;
+    }
+    if (!brow) continue;
+    const d = Math.hypot(brow.x - vSite.x, brow.z - vSite.z);
+    const score = Math.min(brow.h, 16) + d * 0.04;
+    if (d > 90 && score > hunt.score) hunt = { x: brow.x, z: brow.z, score };
+  }
+  WORLD.hunt = { x: hunt.x, z: hunt.z };
+
+  // keep trees/rocks out of the built-up spots
+  WORLD.landmarkExclusions = [
+    { x: WORLD.village.x, z: WORLD.village.z, r: WORLD.village.r + 6 },
+    { x: WORLD.hill.x, z: WORLD.hill.z, r: 9 },
+    { x: WORLD.hunt.x, z: WORLD.hunt.z, r: 10 },
+  ];
+
   function heightAt(x, z) {
     let h = rawHeightAt(x, z);
     // gently level the spawn area toward its own natural height
     const ds = Math.hypot(x - WORLD.spawn.x, z - WORLD.spawn.z);
     h = lerp(spawnH, h, smoothstep(WORLD.spawnFlatR * 0.4, WORLD.spawnFlatR * 1.5, ds));
+    // level the village site so buildings sit naturally
+    const dv = Math.hypot(x - WORLD.village.x, z - WORLD.village.z);
+    h = lerp(WORLD.village.h, h, smoothstep(WORLD.village.r * 0.55, WORLD.village.r * 1.2, dv));
     return h;
   }
 

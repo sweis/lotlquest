@@ -5,9 +5,11 @@ import { WORLD, makeHeightField, buildTerrainMesh } from './world/terrain.js';
 import { buildSky } from './world/sky.js';
 import { buildWater } from './world/water.js';
 import { buildVegetation } from './world/vegetation.js';
+import { buildVillage } from './world/village.js';
 import { buildCoal } from './player/coal.js';
 import { createController } from './player/controller.js';
 import { createCamera } from './game/camera.js';
+import { createMinimap } from './game/minimap.js';
 import { createOverlay } from './debug/overlay.js';
 
 const params = new URLSearchParams(location.search);
@@ -35,7 +37,9 @@ document.getElementById('ctxlost').addEventListener('pointerdown', () => locatio
 const scene = new THREE.Scene();
 
 // ---------------------------------------------------------------- world
-let field, terrain, vegetation, peakSpot;
+let field, terrain, vegetation, village, peakSpot;
+let minimap = null;
+const OBSTACLES = []; // building colliders, refilled on world build
 const water = buildWater();
 scene.add(water);
 const sky = buildSky(scene);
@@ -58,11 +62,19 @@ function buildWorld(newSeed) {
     scene.remove(vegetation);
     vegetation.traverse((o) => o.geometry && o.geometry.dispose());
   }
+  if (village) {
+    scene.remove(village.group);
+    village.group.traverse((o) => o.geometry && o.geometry.dispose());
+  }
   field = makeHeightField(seed);
   terrain = buildTerrainMesh(field);
   vegetation = buildVegetation(field, seed);
-  scene.add(terrain, vegetation);
+  village = buildVillage(field, seed);
+  scene.add(terrain, vegetation, village.group);
+  OBSTACLES.length = 0;
+  OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles);
   peakSpot = findPeak();
+  if (minimap) { minimap.rebuild(); minimap.setLandmarks(village.landmarks); }
 }
 buildWorld(seed);
 // live reference so setSeed() swaps terrain under everyone at once.
@@ -73,10 +85,40 @@ const fieldRef = { heightAt: (x, z) => field.groundAt(x, z) };
 // ---------------------------------------------------------------- player + camera
 const coal = buildCoal();
 scene.add(coal.root);
-const controller = createController(fieldRef, coal.root);
+const controller = createController(fieldRef, coal.root, OBSTACLES);
 const camera = createCamera(renderer, fieldRef);
 controller.state.heading = 0; // face island centre (+Z)
 camera.snapBehind(controller.state);
+minimap = createMinimap(fieldRef);
+minimap.setLandmarks(village.landmarks);
+
+// ---------------------------------------------------------------- click-to-walk
+const walkMarker = new THREE.Mesh(
+  new THREE.TorusGeometry(0.45, 0.06, 8, 24),
+  new THREE.MeshBasicMaterial({ color: 0xf4c95d }));
+walkMarker.rotation.x = -Math.PI / 2;
+walkMarker.visible = false;
+scene.add(walkMarker);
+{
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  let downX = 0, downY = 0, downT = 0;
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    downX = e.clientX; downY = e.clientY; downT = performance.now();
+  });
+  renderer.domElement.addEventListener('pointerup', (e) => {
+    if (phase !== 'playing') return;
+    const moved = Math.hypot(e.clientX - downX, e.clientY - downY);
+    if (moved > 6 || performance.now() - downT > 450) return; // that was a drag
+    ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    ray.setFromCamera(ndc, camera.cam);
+    const hits = ray.intersectObjects([terrain, water], false);
+    const hit = hits.find((h) => h.object === terrain) ?? hits[0];
+    if (!hit) return;
+    controller.setWalkTarget(hit.point.x, hit.point.z);
+    walkMarker.position.set(hit.point.x, field.groundAt(hit.point.x, hit.point.z) + 0.08, hit.point.z);
+  });
+}
 
 // ---------------------------------------------------------------- spawned extras
 const spawned = new THREE.Group(); spawned.name = 'spawned';
@@ -109,14 +151,20 @@ const CONTROLS = [
   ['W / S', 'walk forward / back (hold Shift to run)'],
   ['A / D', 'turn left / right'],
   ['Q / E', 'sidestep'],
+  ['click / tap ground', 'walk there'],
   ['Space', 'jump'],
   ['drag mouse', 'orbit camera — it holds that angle as you move'],
   ['scroll', 'zoom camera'],
+  ['M', 'toggle map'],
   ['Esc', 'pause'],
   ['?', 'this help'],
   ['`', 'diagnostics overlay'],
 ];
-const GOALS = ['Explore the island as Coal the axolotl.', 'Coins, battles and the town market are coming in later builds.'];
+const GOALS = [
+  'Explore the island as Coal the axolotl.',
+  'Visit the village: the town square, the food market and the armory.',
+  'Climb Hope of the Axolotls Hill, wade the Kelp Grounds, scout the Hunting Point.',
+];
 
 function fillSheet(id) {
   const rows = CONTROLS.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
@@ -137,6 +185,29 @@ function setPhase(p) {
   bannerEl.style.display = (phase === 'won' || phase === 'lost') ? 'block' : 'none';
   if (phase === 'won') bannerEl.textContent = 'YOU WIN';
   if (phase === 'lost') bannerEl.textContent = 'TRY AGAIN';
+  if (phase === 'playing') document.getElementById('minimap').style.display = 'block';
+}
+
+// ------------------------------------------------------- landmark discovery
+const toastEl = document.getElementById('toast');
+const insideLandmarks = new Set();
+let toastTimer = 0;
+function showToast(text) {
+  toastEl.textContent = text;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
+}
+function updateLandmarks() {
+  const p = controller.state.pos;
+  for (const lm of village.landmarks) {
+    const d = Math.hypot(p.x - lm.x, p.z - lm.z);
+    if (d < lm.r) {
+      if (!insideLandmarks.has(lm.name)) { insideLandmarks.add(lm.name); showToast(lm.name); }
+    } else {
+      insideLandmarks.delete(lm.name);
+    }
+  }
 }
 document.getElementById('playBtn').addEventListener('click', () => setPhase('playing'));
 document.getElementById('resumeBtn').addEventListener('click', () => setPhase('playing'));
@@ -178,6 +249,13 @@ function frame(now) {
   camera.update(dt, controller.state);
   sky.updateShadowTarget(controller.state.pos);
   overlay.tick(dt);
+  if (phase === 'playing') updateLandmarks();
+  minimap.draw(controller.state);
+
+  // walk marker: visible while a click target is active, gentle pulse
+  const wt = controller.state.walkTarget;
+  walkMarker.visible = !!wt;
+  if (wt) walkMarker.scale.setScalar(1 + Math.sin(now * 0.008) * 0.15);
 
   renderer.render(scene, camera.cam);
   frameMs[frameIdx] = dt * 1000; // wall frame time
@@ -224,7 +302,15 @@ function getState() {
     camPos: { x: camera.cam.position.x, y: camera.cam.position.y, z: camera.cam.position.z },
     orbit: { yawOffset: camera.orbit.yawOffset, pitch: camera.orbit.pitch, dist: camera.orbit.dist },
     timeOfDay: sky.timeOfDay,
-    entities: { ...(vegetation.userData.counts), spawned: spawned.children.length },
+    walkTarget: s.walkTarget ? { ...s.walkTarget } : null,
+    entities: {
+      ...(vegetation.userData.counts), ...(village.group.userData.counts),
+      obstacles: OBSTACLES.length, spawned: spawned.children.length,
+    },
+    landmarks: village.landmarks.map((lm) => ({
+      name: lm.name, x: lm.x, z: lm.z,
+      dist: Math.round(Math.hypot(s.pos.x - lm.x, s.pos.z - lm.z)),
+    })),
     world: { size: WORLD.size, seaLevel: WORLD.seaLevel, peak: peakSpot },
     frameMsP50: percentile(0.5), frameMsP99: percentile(0.99),
     drawCalls, triangles,
@@ -234,10 +320,28 @@ function getState() {
   };
 }
 
+const lmSpot = (name, dx = 0, dz = 0) => () => {
+  const lm = village.landmarks.find((l) => l.name === name);
+  return { x: lm.x + dx, z: lm.z + dz };
+};
 const NAMED_SPOTS = {
   spawn: () => ({ x: WORLD.spawn.x, z: WORLD.spawn.z }),
   peak: () => ({ x: peakSpot.x, z: peakSpot.z }),
-  beach: () => ({ x: WORLD.spawn.x + 30, z: WORLD.spawn.z - 10 }),
+  beach: () => { // first sand south of spawn, backed up onto dry land
+    for (let z = WORLD.spawn.z; z > -WORLD.size / 2; z -= 2) {
+      if (field.groundAt(WORLD.spawn.x, z) < WORLD.seaLevel + 0.5) {
+        return { x: WORLD.spawn.x, z: z + 4 };
+      }
+    }
+    return { x: WORLD.spawn.x, z: WORLD.spawn.z };
+  },
+  village: lmSpot('Axolotl Village', 0, -24),
+  square: lmSpot('Town Square', 0, -5),
+  market: lmSpot('Food Market', 0, -4),
+  armory: lmSpot('The Armory', 0, -5),
+  hill: lmSpot('Hope of the Axolotls Hill', 0, -6),
+  kelp: lmSpot('The Kelp Grounds', 0, 14),
+  hunt: lmSpot('The Hunting Point', -4, 4),
 };
 
 window.lotl = {

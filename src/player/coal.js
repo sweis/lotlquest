@@ -112,6 +112,7 @@ export function buildCoal() {
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.26, depthWrite: false }));
   blob.rotation.x = -Math.PI / 2;
   blob.position.y = 0.03;
+  blob.name = 'blobShadow';
   root.add(blob); // on root, not model — ignores the walk bob
 
   let t = 0;

@@ -8,7 +8,7 @@ export function buildWater() {
   geo.rotateX(-Math.PI / 2);
   const mat = new THREE.MeshStandardMaterial({
     color: 0x3585a8,
-    roughness: 0.18,
+    roughness: 0.38, // soft sparkle — low values draw a harsh sun pillar
     metalness: 0,
     transparent: true,
     opacity: 0.85,

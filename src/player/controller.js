@@ -14,7 +14,7 @@ const MAX_R = 246;          // ocean ring — soft world bound
 const MAX_DEPTH = 0.85;     // how deep Coal may wade
 const MAX_GRADE = 0.9;      // rise/run — faces steeper than ~42° can't be climbed
 
-export function createController(initialField, playerRoot) {
+export function createController(initialField, playerRoot, obstacles = []) {
   let field = initialField;
   const keys = new Set();
   const state = {
@@ -25,6 +25,8 @@ export function createController(initialField, playerRoot) {
     grounded: true,
     speed: 0,
     swimming: false,
+    walkTarget: null,    // {x,z} set by click-to-walk
+    stallTicks: 0,
   };
   state.pos.y = field.heightAt(state.pos.x, state.pos.z);
 
@@ -54,10 +56,30 @@ export function createController(initialField, playerRoot) {
   function update(dt) {
     // tank input: A/D rotate the character, W/S drive, Q/E strafe
     const turn = (keys.has('l') ? 1 : 0) - (keys.has('r') ? 1 : 0);
-    state.heading += turn * TURN_RATE * dt;
-
-    const drive = (keys.has('f') ? 1 : 0) - (keys.has('b') ? BACK_FACTOR : 0);
+    let drive = (keys.has('f') ? 1 : 0) - (keys.has('b') ? BACK_FACTOR : 0);
     const strafe = (keys.has('sr') ? 1 : 0) - (keys.has('sl') ? 1 : 0);
+
+    if (turn !== 0 || drive !== 0 || strafe !== 0) state.walkTarget = null; // manual input wins
+
+    if (state.walkTarget) {
+      // click-to-walk: steer toward the target, stop on arrival or when stuck
+      const dx = state.walkTarget.x - state.pos.x, dz = state.walkTarget.z - state.pos.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 0.7) {
+        state.walkTarget = null;
+      } else {
+        let diff = Math.atan2(dx, dz) - state.heading;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        const maxTurn = TURN_RATE * 1.4 * dt;
+        state.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
+        drive = Math.cos(diff) > 0.25 ? 1 : 0; // move once roughly facing
+        if (dt > 0 && drive && state.speed < 0.35) state.stallTicks++;
+        else state.stallTicks = 0;
+        if (state.stallTicks > 75) { state.walkTarget = null; state.stallTicks = 0; } // blocked — give up
+      }
+    } else {
+      state.heading += turn * TURN_RATE * dt;
+    }
     const target = new THREE.Vector3();
     if (drive !== 0 || strafe !== 0) {
       const spd = (keys.has('run') ? RUN : WALK) * (state.swimming ? 0.55 : 1);
@@ -72,10 +94,24 @@ export function createController(initialField, playerRoot) {
     state.vel.z += (target.z - state.vel.z) * k;
 
     // integrate + collide with the terrain: deep water, world edge, steep faces
+    // A gate only blocks moves that don't IMPROVE the situation — being placed
+    // in deep water / out of bounds / inside an obstacle must never trap you.
     function blocked(tx, tz) {
-      if (Math.hypot(tx, tz) > MAX_R) return true;
+      const rNew = Math.hypot(tx, tz), rCur = Math.hypot(state.pos.x, state.pos.z);
+      if (rNew > MAX_R && rNew >= rCur) return true;
       const h1 = field.heightAt(tx, tz);
-      if (h1 < WORLD.seaLevel - MAX_DEPTH) return true;
+      const h0 = field.heightAt(state.pos.x, state.pos.z);
+      if (h1 < WORLD.seaLevel - MAX_DEPTH && h1 <= h0 + 1e-4) return true;
+      for (let i = 0; i < obstacles.length; i++) { // buildings, rocks, trunks
+        const o = obstacles[i];
+        const dx = tx - o.x, dz = tz - o.z;
+        if (dx * dx + dz * dz < o.r * o.r) {
+          // already inside (teleport/regen overlap)? then it can't trap us —
+          // walking out is allowed, walking further in is not
+          const cx = state.pos.x - o.x, cz = state.pos.z - o.z;
+          if (cx * cx + cz * cz >= o.r * o.r || dx * dx + dz * dz < cx * cx + cz * cz) return true;
+        }
+      }
       const run = Math.hypot(tx - state.pos.x, tz - state.pos.z);
       if (run > 1e-6) {
         const rise = h1 - field.heightAt(state.pos.x, state.pos.z);
@@ -111,13 +147,16 @@ export function createController(initialField, playerRoot) {
     return state;
   }
 
+  function setWalkTarget(x, z) { state.walkTarget = { x, z }; state.stallTicks = 0; }
+
   function teleport(x, z, heading) {
     state.pos.set(x, field.heightAt(x, z), z);
     state.vel.set(0, 0, 0); state.vy = 0; state.grounded = true;
+    state.walkTarget = null;
     if (heading !== undefined) state.heading = heading;
     playerRoot.position.copy(state.pos);
     playerRoot.rotation.y = state.heading;
   }
 
-  return { state, keys, update, teleport, setField(f) { field = f; } };
+  return { state, keys, update, teleport, setWalkTarget, setField(f) { field = f; } };
 }

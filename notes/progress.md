@@ -1,5 +1,34 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-27 (evening) — v0.4: the village + landmarks, minimap, click-to-walk (Steve)
+
+- **Village** (`src/world/village.js`), sites picked deterministically in terrain gen
+  (`WORLD.village/hill/kelp/hunt` + terrain flattened under the village): town square
+  (dirt plaza + roofed well), 6 houses (colored pyramid roofs, doors, windows), the
+  armory (stone, shield sign, barrels), food market (3 awning stalls with produce).
+- **Hope of the Axolotls Hill**: most-PROMINENT knoll near the village (not a mountain
+  flank — prominence-scored), with a stone Coal statue on a pedestal, standing stones,
+  flowers, pink banner.
+- **The Kelp Grounds**: ~87 bent kelp strands instanced in the shallows south of spawn,
+  scaled so tips break the surface. **The Hunting Point**: far coastal brow with lookout
+  deck, 2 ring targets, campfire.
+- **Discovery toasts** (#toast) on entering each named place; names come from
+  `village.landmarks`. **Minimap** (`src/game/minimap.js`): corner canvas, island
+  prerendered from the height field, landmark dots, player arrow; M toggles.
+  (Gotcha: the `#app, canvas` CSS rule was grabbing the minimap canvas — scoped to
+  `#app > canvas`.)
+- **Click/tap-to-walk**: click raycasts terrain; controller steers to the target
+  (cancel on manual input, stall watchdog); gold pulsing ring marker.
+- **Solid obstacles**: 227 circle colliders — buildings, well, statue, standing stones,
+  scatter rocks AND tree trunks (Steve: could ghost through rocks). Escape rule: a gate
+  (deep water / world edge / obstacle) only blocks moves that don't improve the
+  situation — being teleported inside one can never trap you (the old 'beach' spot
+  proved this: it sat in deep water and froze all movement).
+- Water roughness 0.18→0.38 (killed a harsh white sun pillar on the sea).
+- Teleport spots added: village, square, market, armory, hill, kelp, hunt; 'beach' now
+  scans for actual sand. Verified: toasts fire at all 7 landmarks; well blocks at
+  1.46m (r 1.4); 10s beach walk = 45.8m; real click → walked to within 0.42m, cleared.
+
 ## 2026-08-27 (later still) — v0.3: mesh grounding, slope gate, Coal face pass (Steve's feedback)
 
 - **Peak float fixed**: gameplay now grounds on `field.groundAt()` — a sampler that
