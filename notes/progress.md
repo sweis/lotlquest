@@ -1,5 +1,13 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-28 — v0.7: repo restructure + GitHub
+
+- Web build moved from `LotlQuest-ThreeJS/` to the repo root `/Users/saw/repos/lotlquest`
+  (git history came along — the `.git` moved with it). Dev server: `python3 dev-server.py`
+  from the root. `LotlQuest-Unity/`, `.claude/`, `.mcp.json` are gitignored (local only).
+- Pushed to github.com/sweis/lotlquest (private), branch `main`, replacing the old
+  Unity contents there (Steve keeps them locally in `LotlQuest-Unity/`).
+
 ## 2026-08-27 (late night) — v0.6: shop Leave fix + food market heals (Steve)
 
 - **Leave button bug**: clicking Leave closed the sheet, but the proximity check

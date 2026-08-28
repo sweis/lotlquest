@@ -1,2 +1,9 @@
 node_modules/
 .DS_Store
+
+# local-only workspace config
+.claude/
+.mcp.json
+
+# local Unity build of the game — not part of the web repo
+LotlQuest-Unity/
