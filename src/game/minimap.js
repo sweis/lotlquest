@@ -41,9 +41,11 @@ export function createMinimap(field) {
       const n = parseInt(hex.slice(1), 16);
       img.data[i] = n >> 16; img.data[i + 1] = (n >> 8) & 255; img.data[i + 2] = n & 255; img.data[i + 3] = 255;
     };
+    // Overhead view of a right-handed world: with +z (north) up on the map,
+    // +x lies to the screen-LEFT — px must run east→west or the map mirrors.
     for (let py = 0; py < RES; py++) {
       for (let px = 0; px < RES; px++) {
-        const x = (px / (RES - 1)) * WORLD.size - WORLD.size / 2;
+        const x = WORLD.size / 2 - (px / (RES - 1)) * WORLD.size;
         const z = WORLD.size / 2 - (py / (RES - 1)) * WORLD.size; // north up
         const h = field.groundAt ? field.groundAt(x, z) : field.heightAt(x, z);
         const i = (py * RES + px) * 4;
@@ -61,10 +63,10 @@ export function createMinimap(field) {
   const setTrails = (t) => { trails = t ?? []; };
   const rebuild = () => prerender();
 
-  // world → map px for the current viewport
+  // world → map px for the current viewport (+x = screen-left, +z = up)
   function toMap(x, z) {
     return [
-      SIZE / 2 + ((x - view.cx) / VIEW) * SIZE,
+      SIZE / 2 - ((x - view.cx) / VIEW) * SIZE,
       SIZE / 2 - ((z - view.cz) / VIEW) * SIZE,
     ];
   }
@@ -81,8 +83,8 @@ export function createMinimap(field) {
     ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 2, 0, Math.PI * 2);
     ctx.clip();
 
-    // zoomed source rect of the prerendered island
-    const px = ((view.cx - VIEW / 2) + WORLD.size / 2) / WORLD.size * RES;
+    // zoomed source rect of the prerendered island (image px runs east→west)
+    const px = (WORLD.size / 2 - (view.cx + VIEW / 2)) / WORLD.size * RES;
     const py = ((WORLD.size / 2 - (view.cz + VIEW / 2))) / WORLD.size * RES;
     const pw = (VIEW / WORLD.size) * RES;
     ctx.imageSmoothingEnabled = true;
@@ -115,7 +117,8 @@ export function createMinimap(field) {
     // player arrow — points the way Coal is facing (north up)
     const [ax, ay] = toMap(playerState.pos.x, playerState.pos.z);
     ctx.translate(ax, ay);
-    ctx.rotate(playerState.heading + Math.PI); // arrow drawn tip-down; heading 0 (+z) → up
+    // arrow drawn tip-down; heading 0 (+z) → up, heading +π/2 (+x) → screen-left
+    ctx.rotate(-playerState.heading + Math.PI);
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = 'rgba(20,26,34,.85)'; ctx.lineWidth = 1.4;
     ctx.beginPath();

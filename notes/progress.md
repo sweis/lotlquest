@@ -1,5 +1,14 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-28 — v0.7.2: minimap was mirrored east-west (Steve)
+
+- With +z (north) drawn up on an overhead map of a right-handed three.js world,
+  +x lies to the screen-LEFT. The map drew +x to the right, so everything was
+  mirrored relative to the 3D view (water on the wrong side). Flipped the x-axis
+  in all four transforms — prerendered image, viewport source rect, dot/trail
+  projection, arrow rotation. Verified: on the coast facing north, water is on
+  the right in BOTH the view and the map.
+
 ## 2026-08-28 — v0.7.1: fix shadow drift while walking (Steve)
 
 - Steve: shadows swept rapidly when walking, "like the light is physically close".
