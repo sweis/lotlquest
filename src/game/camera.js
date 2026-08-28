@@ -1,6 +1,7 @@
-// Chase camera: drag orbits and HOLDS while idle; movement recenters the view
-// behind travel (same feel as the Unity build's FreeLookCamera). Plus named
-// fixed cameras so before/after captures are comparable.
+// Chase camera: drag sets an orbit offset relative to the character's heading
+// and HOLDS it — rear stays rear, side stays side as the character turns.
+// Fully independent of movement. Plus named fixed cameras so before/after
+// captures are comparable.
 
 import * as THREE from 'three';
 import { WORLD } from '../world/terrain.js';
@@ -17,7 +18,6 @@ export function createCamera(renderer, field) {
   let mode = 'chase';
   const lookTarget = new THREE.Vector3();
   const desired = new THREE.Vector3();
-  const RECENTER = 3.5;
 
   const el = renderer.domElement;
   let lastX = 0, lastY = 0;
@@ -51,16 +51,13 @@ export function createCamera(renderer, field) {
     if (mode === 'hero-close') {
       // low front three-quarter close-up on Coal, framed off his heading
       const a = playerState.heading + 0.55;
-      cam.position.set(p.x + Math.sin(a) * 2.1, p.y + 0.72, p.z + Math.cos(a) * 2.1);
-      cam.lookAt(p.x, p.y + 0.38, p.z);
+      cam.position.set(p.x + Math.sin(a) * 2.1, p.y + 0.58, p.z + Math.cos(a) * 2.1);
+      cam.lookAt(p.x, p.y + 0.52, p.z);
       return;
     }
 
-    // chase: recenter yaw offset behind travel while moving, hold while idle
-    if (!orbit.dragging && playerState.speed > 0.4) {
-      orbit.yawOffset *= Math.exp(-RECENTER * dt);
-    }
-    const yaw = playerState.heading + Math.PI + orbit.yawOffset; // behind player
+    // chase: hold the dragged offset relative to heading — no auto-recenter
+    const yaw = playerState.heading + Math.PI + orbit.yawOffset;
     const cp = Math.cos(orbit.pitch), sp = Math.sin(orbit.pitch);
     desired.set(
       p.x + Math.sin(yaw) * cp * orbit.dist,

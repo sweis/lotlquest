@@ -71,6 +71,28 @@ export function buildTerrainMesh(field, segments = 256) {
   }
   geo.computeVertexNormals();
 
+  // Install a render-exact ground sampler: same vertex grid and the same
+  // per-quad triangle split as PlaneGeometry. Grounding on the analytic field
+  // floats the player above the coarser mesh at sharp crests — gameplay must
+  // stand on what is rendered.
+  {
+    const N = segments + 1, step = size / segments, half = size / 2;
+    const grid = new Float32Array(N * N); // index iz*N+ix ↔ (x=-half+ix·step, z=-half+iz·step)
+    for (let i = 0; i < pos.count; i++) grid[i] = pos.getY(i);
+    field.groundAt = (x, z) => {
+      const gx = Math.min(Math.max((x + half) / step, 0), segments - 1e-6);
+      const gz = Math.min(Math.max((z + half) / step, 0), segments - 1e-6);
+      const ix = Math.floor(gx), iz = Math.floor(gz);
+      const fx = gx - ix, fz = gz - iz;
+      const h00 = grid[iz * N + ix], h10 = grid[iz * N + ix + 1];
+      const h01 = grid[(iz + 1) * N + ix], h11 = grid[(iz + 1) * N + ix + 1];
+      // PlaneGeometry splits each quad along the (x1,z0)–(x0,z1) diagonal
+      return fx + fz <= 1
+        ? h00 + (h10 - h00) * fx + (h01 - h00) * fz
+        : h11 + (h01 - h11) * (1 - fx) + (h10 - h11) * (1 - fz);
+    };
+  }
+
   // vertex-colour splat: sand → grass (two-frequency tint) → rock on slope → snow high
   const colors = new Float32Array(pos.count * 3);
   const nrm = geo.attributes.normal;

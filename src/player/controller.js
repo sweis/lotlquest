@@ -1,14 +1,18 @@
-// Movement: camera-relative WASD, character turns toward travel, small jump.
+// Movement: tank controls (matches the Unity build) — W/S drive along the
+// character's own heading, A/D turn, Q/E strafe. Fully camera-independent.
 // Real input path only — window key events; debug injection goes through the
 // same `keys` set so both paths exercise identical code.
 
 import * as THREE from 'three';
 import { WORLD } from '../world/terrain.js';
 
-const WALK = 3.4, RUN = 6.2, ACCEL = 18, TURN = 9;
+const WALK = 4.6, RUN = 8.2, ACCEL = 18;
+const TURN_RATE = 3.0;      // rad/s with A/D
+const BACK_FACTOR = 0.6, STRAFE_FACTOR = 0.8;
 const GRAVITY = 16, JUMP_V = 5.4;
 const MAX_R = 246;          // ocean ring — soft world bound
 const MAX_DEPTH = 0.85;     // how deep Coal may wade
+const MAX_GRADE = 0.9;      // rise/run — faces steeper than ~42° can't be climbed
 
 export function createController(initialField, playerRoot) {
   let field = initialField;
@@ -27,11 +31,12 @@ export function createController(initialField, playerRoot) {
   const KEYMAP = {
     KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b',
     KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r',
+    KeyQ: 'sl', KeyE: 'sr',
     ShiftLeft: 'run', ShiftRight: 'run', Space: 'jump',
   };
   // fallback on e.key — some injected/driver events arrive with an empty code
   const KEYMAP_BY_KEY = {
-    w: 'f', s: 'b', a: 'l', d: 'r',
+    w: 'f', s: 'b', a: 'l', d: 'r', q: 'sl', e: 'sr',
     ArrowUp: 'f', ArrowDown: 'b', ArrowLeft: 'l', ArrowRight: 'r',
     Shift: 'run', ' ': 'jump', space: 'jump', spacebar: 'jump',
   };
@@ -46,40 +51,44 @@ export function createController(initialField, playerRoot) {
   window.addEventListener('keyup', (e) => onKey(e, false));
   window.addEventListener('blur', () => keys.clear());
 
-  function update(dt, camYaw) {
-    // input → desired planar velocity (camera relative)
-    let ix = 0, iz = 0;
-    if (keys.has('f')) iz += 1;
-    if (keys.has('b')) iz -= 1;
-    if (keys.has('l')) ix += 1;
-    if (keys.has('r')) ix -= 1;
-    const moving = ix !== 0 || iz !== 0;
+  function update(dt) {
+    // tank input: A/D rotate the character, W/S drive, Q/E strafe
+    const turn = (keys.has('l') ? 1 : 0) - (keys.has('r') ? 1 : 0);
+    state.heading += turn * TURN_RATE * dt;
+
+    const drive = (keys.has('f') ? 1 : 0) - (keys.has('b') ? BACK_FACTOR : 0);
+    const strafe = (keys.has('sr') ? 1 : 0) - (keys.has('sl') ? 1 : 0);
     const target = new THREE.Vector3();
-    if (moving) {
-      const ang = Math.atan2(ix, iz) + camYaw;
+    if (drive !== 0 || strafe !== 0) {
       const spd = (keys.has('run') ? RUN : WALK) * (state.swimming ? 0.55 : 1);
-      target.set(Math.sin(ang) * spd, 0, Math.cos(ang) * spd);
-      // turn toward travel, frame-rate independent
-      let d = ang - state.heading;
-      d = Math.atan2(Math.sin(d), Math.cos(d));
-      state.heading += d * (1 - Math.exp(-TURN * dt));
+      const fx = Math.sin(state.heading), fz = Math.cos(state.heading);   // forward
+      const rx = -fz, rz = fx;                                            // screen-right
+      target.set(fx * drive + rx * strafe * STRAFE_FACTOR, 0, fz * drive + rz * strafe * STRAFE_FACTOR);
+      if (target.lengthSq() > 1) target.normalize();
+      target.multiplyScalar(spd);
     }
     const k = 1 - Math.exp(-ACCEL * dt);
     state.vel.x += (target.x - state.vel.x) * k;
     state.vel.z += (target.z - state.vel.z) * k;
 
-    // integrate + collide with terrain height field
+    // integrate + collide with the terrain: deep water, world edge, steep faces
+    function blocked(tx, tz) {
+      if (Math.hypot(tx, tz) > MAX_R) return true;
+      const h1 = field.heightAt(tx, tz);
+      if (h1 < WORLD.seaLevel - MAX_DEPTH) return true;
+      const run = Math.hypot(tx - state.pos.x, tz - state.pos.z);
+      if (run > 1e-6) {
+        const rise = h1 - field.heightAt(state.pos.x, state.pos.z);
+        if (rise / run > MAX_GRADE) return true; // downhill is always allowed
+      }
+      return false;
+    }
     let nx = state.pos.x + state.vel.x * dt;
     let nz = state.pos.z + state.vel.z * dt;
-    const groundNew = field.heightAt(nx, nz);
-    const tooDeep = groundNew < WORLD.seaLevel - MAX_DEPTH;
-    const outOfWorld = Math.hypot(nx, nz) > MAX_R;
-    if (tooDeep || outOfWorld) { // slide: keep axis components that stay legal
-      if (!(field.heightAt(nx, state.pos.z) < WORLD.seaLevel - MAX_DEPTH || Math.hypot(nx, state.pos.z) > MAX_R)) {
-        nz = state.pos.z;
-      } else if (!(field.heightAt(state.pos.x, nz) < WORLD.seaLevel - MAX_DEPTH || Math.hypot(state.pos.x, nz) > MAX_R)) {
-        nx = state.pos.x;
-      } else { nx = state.pos.x; nz = state.pos.z; }
+    if (blocked(nx, nz)) { // slide: keep the axis component that stays legal
+      if (!blocked(nx, state.pos.z)) nz = state.pos.z;
+      else if (!blocked(state.pos.x, nz)) nx = state.pos.x;
+      else { nx = state.pos.x; nz = state.pos.z; }
     }
     state.pos.x = nx; state.pos.z = nz;
 

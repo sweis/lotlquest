@@ -65,8 +65,10 @@ function buildWorld(newSeed) {
   peakSpot = findPeak();
 }
 buildWorld(seed);
-// live reference so setSeed() swaps terrain under everyone at once
-const fieldRef = { heightAt: (x, z) => field.heightAt(x, z) };
+// live reference so setSeed() swaps terrain under everyone at once.
+// groundAt = the rendered mesh surface (installed by buildTerrainMesh) — all
+// gameplay stands on that, never on the analytic field (floats at crests).
+const fieldRef = { heightAt: (x, z) => field.groundAt(x, z) };
 
 // ---------------------------------------------------------------- player + camera
 const coal = buildCoal();
@@ -81,7 +83,7 @@ const spawned = new THREE.Group(); spawned.name = 'spawned';
 scene.add(spawned);
 function spawnThing(kind, at) {
   const p = at ?? { x: controller.state.pos.x + 2, z: controller.state.pos.z + 2 };
-  const y = field.heightAt(p.x, p.z);
+  const y = field.groundAt(p.x, p.z);
   let mesh;
   if (kind === 'rock') {
     mesh = new THREE.Mesh(
@@ -104,9 +106,11 @@ function spawnThing(kind, at) {
 // ---------------------------------------------------------------- game phase + UI
 let phase = 'title'; // title | playing | paused | won | lost
 const CONTROLS = [
-  ['W A S D / arrows', 'walk (hold Shift to run)'],
+  ['W / S', 'walk forward / back (hold Shift to run)'],
+  ['A / D', 'turn left / right'],
+  ['Q / E', 'sidestep'],
   ['Space', 'jump'],
-  ['drag mouse', 'look around (recenters as you walk)'],
+  ['drag mouse', 'orbit camera — it holds that angle as you move'],
   ['scroll', 'zoom camera'],
   ['Esc', 'pause'],
   ['?', 'this help'],
@@ -151,8 +155,7 @@ let drawCalls = 0, triangles = 0;
 
 function simTick(dt) {
   const paused = phase !== 'playing';
-  // moveYaw = the direction the camera faces, so W walks away from camera
-  controller.update(paused ? 0 : dt, camera.moveYaw());
+  controller.update(paused ? 0 : dt); // tank controls — camera-independent
   coal.animate(dt, paused ? 0 : controller.state.speed, controller.state.grounded);
   simTime += dt;
 }
@@ -264,7 +267,11 @@ window.lotl = {
   lose() { setPhase('lost'); },
   play() { setPhase('playing'); },
   cam(name) { camera.setMode(name); },
-  heightAt: (x, z) => field.heightAt(x, z),
+  heightAt: (x, z) => field.groundAt(x, z),
+  modelMinY() { // world-space lowest point of Coal vs the ground under him
+    const b = new THREE.Box3().setFromObject(coal.root);
+    return { minY: b.min.y, groundY: field.groundAt(controller.state.pos.x, controller.state.pos.z) };
+  },
   press(code) { window.dispatchEvent(new KeyboardEvent('keydown', { code, cancelable: true })); },
   release(code) { window.dispatchEvent(new KeyboardEvent('keyup', { code, cancelable: true })); },
 };

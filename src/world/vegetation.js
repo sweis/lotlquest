@@ -29,6 +29,7 @@ export function buildVegetation(field, seed) {
   const group = new THREE.Group();
   group.name = 'vegetation';
   const rng = mulberry32(seed ^ 0x5eed);
+  const ground = field.groundAt ?? field.heightAt; // sit on the rendered mesh
 
   // --- gather placements -------------------------------------------------
   const trees = [];
@@ -37,9 +38,9 @@ export function buildVegetation(field, seed) {
   for (let i = 0; i < maxTries && trees.length < 150; i++) {
     const x = (rng() - 0.5) * WORLD.size * 0.92;
     const z = (rng() - 0.5) * WORLD.size * 0.92;
-    const h = field.heightAt(x, z);
+    const h = ground(x, z);
     if (h < WORLD.seaLevel + 1.4 || h > 24) continue;
-    const slope = Math.abs(field.heightAt(x + 2, z) - h) + Math.abs(field.heightAt(x, z + 2) - h);
+    const slope = Math.abs(ground(x + 2, z) - h) + Math.abs(ground(x, z + 2) - h);
     if (slope > 1.6) continue;
     const ds = Math.hypot(x - WORLD.spawn.x, z - WORLD.spawn.z);
     if (ds < WORLD.spawnFlatR * 0.9) continue;
@@ -51,7 +52,7 @@ export function buildVegetation(field, seed) {
   for (let i = 0; i < 1200 && rocks.length < 60; i++) {
     const x = (rng() - 0.5) * WORLD.size * 0.95;
     const z = (rng() - 0.5) * WORLD.size * 0.95;
-    const h = field.heightAt(x, z);
+    const h = ground(x, z);
     if (h < WORLD.seaLevel - 0.5 || h > 6) continue; // coastal band
     rocks.push({ x, z, h, s: 0.4 + rng() * 1.3, r: rng() * Math.PI * 2 });
   }

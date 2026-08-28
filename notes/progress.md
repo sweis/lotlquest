@@ -1,5 +1,40 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-27 (later still) — v0.3: mesh grounding, slope gate, Coal face pass (Steve's feedback)
+
+- **Peak float fixed**: gameplay now grounds on `field.groundAt()` — a sampler that
+  replicates the terrain mesh's vertex grid AND PlaneGeometry's per-quad triangle split —
+  installed by `buildTerrainMesh`. Analytic `heightAt` floats above the coarser rendered
+  mesh at sharp crests (was ~0.2m at the summit). Vegetation/coins/camera use it too.
+  Verified: modelMinY − groundY = 0.015m (foot pad) at spawn AND at the 30m peak.
+- **Steep faces unclimbable**: movement blocked when rise/run > 0.9 (~42°) along the
+  movement direction (downhill always free). Verified: a 1.06-grade face allows 0.00m
+  uphill in 2s, 5.24m straight back down. NOTE: gate is direction-based, so switchbacking
+  up at a traverse angle still works — summit = route-finding, beeline = blocked. Say if
+  faces should be hard walls instead (would switch to surface-normal basis).
+- **Coal face/body pass** (Steve, with art reference): white stomach oval; line pupils —
+  dark slits slanted outer-end-up (V toward the nose, the drawing's determined look).
+- **Dev server**: `dev-server.py` (python, Cache-Control: no-store) replaces bare
+  http.server — Chrome was serving MIXED stale ES modules (fresh main.js + cached old
+  terrain.js → `field.groundAt is not a function`). If a page ever acts stale:
+  `fetch(url, {cache:'reload'})` per module, then reload. launch.json updated (autoPort).
+
+## 2026-08-27 (later) — v0.2: tank controls, camera hold, upright Coal (Steve's feedback)
+
+- **Controls → tank** (Steve: camera-relative W veered/circled while the camera panned):
+  W/S drive along the character's own heading (back at 0.6×), A/D turn (3.0 rad/s),
+  Q/E strafe, Shift run. Movement is fully camera-independent.
+- **Camera → rigid relative hold**: drag sets a yaw offset relative to heading and it
+  HOLDS — rear stays rear, side stays side as he moves. Auto-recenter removed.
+- **Coal → upright biped** (Steve): stands on two legs, little swinging arms, egg torso,
+  big head, droopy tail fin; walk = leg swings + counter arm swings + waddle roll/bob;
+  jump = tucked legs + arms up. Blob contact shadow under him (kills the float illusion —
+  measured feet at ground +1.5cm via lotl.modelMinY()).
+- **Faster** (Steve): walk 3.4→4.6, run 6.2→8.2.
+- Verified via freeze/step: side-dragged camera (offset 1.04) + 3s W → heading unchanged,
+  path exactly straight, offset still 1.04 after; speeds 4.60/8.20; turn 3.00 rad/s;
+  cold boot clean, no console errors.
+
 ## 2026-08-27 — v0.1: walkable island + Coal + debug hooks
 
 **State: v1 must-have met** — you can walk around the island as Coal.
