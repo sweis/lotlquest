@@ -64,6 +64,20 @@
     background: #0b1420; color: #e8eef4; font-size: 18px; cursor: pointer;
   }
 
+  /* NPC dialog card */
+  #dialog {
+    position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%);
+    min-width: 320px; max-width: 60vw; display: none; cursor: pointer;
+    background: rgba(248,250,252,.94); border-radius: 14px; padding: 14px 22px 12px;
+    box-shadow: 0 10px 32px rgba(8,14,22,.35);
+  }
+  #dialog #dialogName {
+    font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: #6b7a58; margin-bottom: 4px;
+  }
+  #dialog #dialogText { font-size: 16px; color: #27303c; line-height: 1.45; }
+  #dialog .hint { margin-top: 8px; font-size: 11px; color: #9aa7b4; }
+
   /* location toast */
   #toast {
     position: absolute; left: 50%; top: 11%; transform: translateX(-50%) translateY(-8px);
@@ -116,6 +130,7 @@
 <div id="pause" class="sheet ui"><h2>Paused</h2><div id="pauseBody"></div><button id="resumeBtn">Resume</button></div>
 <div id="help" class="sheet ui"><h2>How to play</h2><div id="helpBody"></div><button id="helpClose">Close</button></div>
 <div id="banner" class="ui"></div>
+<div id="dialog" class="ui"><div id="dialogName"></div><div id="dialogText"></div><div class="hint">click for more · Esc to close</div></div>
 <div id="toast" class="ui"></div>
 <div id="hud" class="ui">
   <div id="hearts"></div>

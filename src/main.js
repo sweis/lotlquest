@@ -8,6 +8,8 @@ import { buildVegetation } from './world/vegetation.js';
 import { buildVillage } from './world/village.js';
 import { buildTrails } from './world/trails.js';
 import { buildMonsters } from './world/monsters.js';
+import { createNPCs } from './world/npcs.js';
+import { createDialog } from './game/dialog.js';
 import { buildCoal } from './player/coal.js';
 import { createController } from './player/controller.js';
 import { createCamera } from './game/camera.js';
@@ -41,7 +43,7 @@ document.getElementById('ctxlost').addEventListener('pointerdown', () => locatio
 const scene = new THREE.Scene();
 
 // ---------------------------------------------------------------- world
-let field, terrain, vegetation, village, monsters, peakSpot;
+let field, terrain, vegetation, village, monsters, npcs, peakSpot;
 let minimap = null, combat = null;
 const OBSTACLES = []; // building colliders, refilled on world build
 const water = buildWater();
@@ -71,15 +73,17 @@ function buildWorld(newSeed) {
     village.group.traverse((o) => o.geometry && o.geometry.dispose());
   }
   if (monsters) monsters.dispose(scene);
+  if (npcs) npcs.dispose(scene);
   field = makeHeightField(seed);
   terrain = buildTerrainMesh(field);
   buildTrails(field, terrain); // paints paths into the terrain colors, sets WORLD.trails
   vegetation = buildVegetation(field, seed);
   village = buildVillage(field, seed);
   monsters = buildMonsters(field, seed, scene);
+  npcs = createNPCs(field, scene, village.landmarks);
   scene.add(terrain, vegetation, village.group);
   OBSTACLES.length = 0;
-  OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles);
+  OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles, ...npcs.obstacles);
   peakSpot = findPeak();
   if (minimap) {
     minimap.rebuild();
@@ -131,6 +135,7 @@ combat.setMonsters(monsters);
 updateHUD();
 // closing a shop (Leave, Esc, walking away) blocks reopening THAT shop until
 // Coal leaves its radius — otherwise proximity reopens the sheet next frame
+const dialog = createDialog();
 const shop = createShop(combat, (closedMode) => { shopBlockMode = closedMode; });
 document.getElementById('shopClose').addEventListener('click', () => shop.close());
 let shopBlockMode = null;
@@ -174,8 +179,24 @@ scene.add(walkMarker);
     if (phase !== 'playing') return;
     const moved = Math.hypot(e.clientX - downX, e.clientY - downY);
     if (moved > 6 || performance.now() - downT > 450) return; // that was a drag
+    if (dialog.isOpen()) dialog.close(); // ground click dismisses chat, then acts
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera.cam);
+
+    // an axolotl? talk if close, walk over if not
+    const npc = npcs.raycast(ray);
+    if (npc) {
+      const p = npc.ax.root.position;
+      const d = Math.hypot(controller.state.pos.x - p.x, controller.state.pos.z - p.z);
+      if (d < 4.5) {
+        dialog.open(npc);
+      } else {
+        controller.setWalkTarget(p.x, p.z);
+        walkMarker.position.set(p.x, field.groundAt(p.x, p.z) + 0.08, p.z);
+      }
+      return;
+    }
+
     const hits = ray.intersectObjects([terrain, water], false);
     const hit = hits.find((h) => h.object === terrain) ?? hits[0];
     if (!hit) return;
@@ -216,6 +237,7 @@ const CONTROLS = [
   ['A / D', 'turn left / right'],
   ['Q / E', 'sidestep'],
   ['click / tap ground', 'walk there'],
+  ['click an axolotl', 'talk (click again for more)'],
   ['F', 'attack (bite, sword, or bow)'],
   ['1 / 2', 'switch melee / bow'],
   ['Space', 'jump'],
@@ -282,6 +304,7 @@ document.getElementById('playBtn').addEventListener('click', () => setPhase('pla
 document.getElementById('resumeBtn').addEventListener('click', () => setPhase('playing'));
 document.getElementById('helpClose').addEventListener('click', () => { helpEl.style.display = 'none'; });
 window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && dialog.isOpen()) { dialog.close(); return; }
   if (e.key === 'Escape' && shop.isOpen()) { shop.close(); return; } // close() blocks reopen itself
   if (e.key === 'Escape' && phase === 'playing') setPhase('paused');
   else if (e.key === 'Escape' && phase === 'paused') setPhase('playing');
@@ -300,6 +323,12 @@ function simTick(dt) {
   coal.animate(dt, paused ? 0 : controller.state.speed, controller.state.grounded);
   if (!paused) {
     combat.update(dt);
+    npcs.update(dt, controller.state);
+    // walking away ends a conversation
+    if (dialog.isOpen()) {
+      const sp = dialog.speaker().ax.root.position;
+      if (Math.hypot(controller.state.pos.x - sp.x, controller.state.pos.z - sp.z) > 5.5) dialog.close();
+    }
     monsters.update(dt, controller.state, {
       contact: (s) => {
         if (combat.damagePlayer(1, s.mesh.position.x, s.mesh.position.z) === 'died') onPlayerDeath();
@@ -425,6 +454,11 @@ function getState() {
       name: lm.name, x: lm.x, z: lm.z,
       dist: Math.round(Math.hypot(s.pos.x - lm.x, s.pos.z - lm.z)),
     })),
+    npcs: npcs.list.map((n) => ({
+      name: n.name, x: +n.ax.root.position.x.toFixed(1), z: +n.ax.root.position.z.toFixed(1),
+      dist: Math.round(Math.hypot(s.pos.x - n.ax.root.position.x, s.pos.z - n.ax.root.position.z)),
+      talking: dialog.isOpen() && dialog.speaker() === n,
+    })),
     world: { size: WORLD.size, seaLevel: WORLD.seaLevel, peak: peakSpot },
     frameMsP50: percentile(0.5), frameMsP99: percentile(0.99),
     drawCalls, triangles,
@@ -501,6 +535,13 @@ window.lotl = {
   closeShop() { shop.close(); },
   monsters: () => monsters,
   houses: () => village.fadeHouses.map((h) => ({ x: h.x, z: h.z, r: h.r })),
+  talkTo(name) {
+    const n = npcs.list.find((x) => x.name.toLowerCase() === String(name).toLowerCase());
+    if (!n) throw new Error(`no NPC "${name}" (${npcs.list.map((x) => x.name).join(', ')})`);
+    dialog.open(n);
+    return n.lines[(n.lineIndex) % n.lines.length];
+  },
+  closeDialog() { dialog.close(); },
 };
 
 const overlay = createOverlay(renderer, getState);

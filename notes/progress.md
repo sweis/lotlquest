@@ -1,5 +1,22 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-28 — v0.8: village NPCs — Matcha, Spark, Bubble (Steve, with art)
+
+- `buildCoal` refactored into `buildAxolotl(opts)` (colors, eye style, brows) —
+  Coal is the default palette; the statue and gear API are untouched.
+- Three NPCs per the character sheet (`src/world/npcs.js`): **Matcha** (green,
+  slit eyes + heavy dark-green eyebrows, hangs out by the well; stern lines),
+  **Spark** (yellow, ROUND pupils with teal iris, orange-brown gills like the
+  drawing, near the market; excitable lines), **Bubble** (brown, slit eyes, by
+  the south-west houses; sleepy lines).
+- Behavior: idle wander within ~4m of home (walkable-ground checked), stop and
+  face Coal within 3.6m; solid (live-updating circle colliders in OBSTACLES).
+- Dialog (`src/game/dialog.js` + #dialog card): click an axolotl within 4.5m to
+  talk; click the card for the next line; Esc / clicking elsewhere / walking
+  off (>5.5m) closes. Clicking a distant NPC walks Coal over to them.
+- Verified: placement, greet-turn, click→talk→advance→Esc, NPC solidity, no
+  console errors. lotl.talkTo(name) / closeDialog(); getState().npcs.
+
 ## 2026-08-28 — v0.7.2: minimap was mirrored east-west (Steve)
 
 - With +z (north) drawn up on an overhead map of a right-handed three.js world,

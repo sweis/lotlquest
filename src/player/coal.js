@@ -1,22 +1,34 @@
-// Coal, the black axolotl — upright anthropomorphic biped, built from
-// primitives (matches the child's-drawing character sheet: black body, big
-// white eyes, frilly external gills, standing on two legs).
+// Anthropomorphic axolotl builder — upright biped from primitives, matching
+// the child's-drawing character sheet (big eyes, frilly external gills,
+// standing on two legs). Coal is the default palette; NPCs pass their own
+// colors, eye style ('line' | 'round' with an iris) and optional eyebrows.
 // Model faces +Z, feet at y=0. animate() drives the walk from speed.
 
 import * as THREE from 'three';
 
-const MAT = {
-  body: new THREE.MeshStandardMaterial({ color: 0x2b2b33, roughness: 0.55 }),
-  belly: new THREE.MeshStandardMaterial({ color: 0x44444f, roughness: 0.7 }),      // dark — ridge/fin
-  stomach: new THREE.MeshStandardMaterial({ color: 0xe9eaee, roughness: 0.6 }),   // white patch (see art)
-  white: new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 0.3 }),
-  pupil: new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.2 }),
-  gill: new THREE.MeshStandardMaterial({ color: 0x565f7d, roughness: 0.55 }),
-};
+export function buildAxolotl(opts = {}) {
+  const C = {
+    name: 'coal',
+    body: 0x2b2b33,
+    belly: 0x44444f,       // ridge/fin accent
+    stomach: 0xe9eaee,     // front patch (see art)
+    gill: 0x565f7d,
+    eyeStyle: 'line',      // 'line' (determined slits) | 'round' (with iris)
+    iris: 0x3fa8b8,        // used by 'round'
+    brows: null,           // color → draws heavy eyebrows (Matcha)
+    ...opts,
+  };
+  const MAT = {
+    body: new THREE.MeshStandardMaterial({ color: C.body, roughness: 0.55 }),
+    belly: new THREE.MeshStandardMaterial({ color: C.belly, roughness: 0.7 }),
+    stomach: new THREE.MeshStandardMaterial({ color: C.stomach, roughness: 0.6 }),
+    white: new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 0.3 }),
+    pupil: new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.2 }),
+    gill: new THREE.MeshStandardMaterial({ color: C.gill, roughness: 0.55 }),
+  };
 
-export function buildCoal() {
-  const root = new THREE.Group(); root.name = 'coal';
-  const model = new THREE.Group(); model.name = 'coalModel';
+  const root = new THREE.Group(); root.name = C.name;
+  const model = new THREE.Group(); model.name = C.name + 'Model';
   root.add(model);
 
   const add = (geo, mat, parent = model) => {
@@ -66,16 +78,31 @@ export function buildCoal() {
   const snout = add(new THREE.SphereGeometry(0.20, 16, 12), MAT.body, head);
   snout.position.set(0, -0.075, 0.135); snout.scale.set(1.32, 0.52, 0.95);
 
-  // eyes — white, slightly almond, with a heavy LINE pupil slanting toward the
-  // nose (the art's determined look), not circles
+  // eyes — white and slightly almond. 'line': heavy slit pupils slanting
+  // toward the nose (Coal, Bubble). 'round': circular pupils with a colored
+  // iris (Spark's bright look in the art).
   for (const side of [-1, 1]) {
     const eye = add(new THREE.SphereGeometry(0.10, 16, 12), MAT.white, head);
     eye.position.set(0.215 * side, 0.06, 0.165);
     eye.scale.set(1.15, 0.9, 0.8);
-    const pupil = add(new THREE.SphereGeometry(0.05, 12, 10), MAT.pupil, head);
-    pupil.position.set(0.215 * side, 0.062, 0.238);
-    pupil.scale.set(1.7, 0.28, 0.55);        // horizontal line across the eye
-    pupil.rotation.z = side * 0.30;           // outer end up → V-shaped, determined
+    if (C.eyeStyle === 'round') {
+      const irisMat = new THREE.MeshStandardMaterial({ color: C.iris, roughness: 0.35 });
+      const iris = add(new THREE.SphereGeometry(0.052, 12, 10), irisMat, head);
+      iris.position.set(0.218 * side, 0.062, 0.245);
+      const pupil = add(new THREE.SphereGeometry(0.028, 10, 8), MAT.pupil, head);
+      pupil.position.set(0.222 * side, 0.063, 0.288);
+    } else {
+      const pupil = add(new THREE.SphereGeometry(0.05, 12, 10), MAT.pupil, head);
+      pupil.position.set(0.215 * side, 0.062, 0.238);
+      pupil.scale.set(1.7, 0.28, 0.55);      // horizontal line across the eye
+      pupil.rotation.z = side * 0.30;         // outer end up → V-shaped, determined
+    }
+    if (C.brows) {
+      const browMat = new THREE.MeshStandardMaterial({ color: C.brows, roughness: 0.7 });
+      const brow = add(new THREE.BoxGeometry(0.17, 0.045, 0.05), browMat, head);
+      brow.position.set(0.16 * side, 0.17, 0.20);
+      brow.rotation.z = side * 0.32;          // inner ends down — stern
+    }
   }
 
   // external gills — 3 long frilly stalks per side, flared up and out so they
@@ -214,4 +241,9 @@ export function buildCoal() {
     root, model, animate, playAttack, setSword, setBow, setShell,
     parts: { head, torso, arms, legs, tail },
   };
+}
+
+// Coal, the black axolotl — the player character. Default palette.
+export function buildCoal() {
+  return buildAxolotl();
 }
