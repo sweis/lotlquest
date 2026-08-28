@@ -1,5 +1,33 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-27 (night) — v0.5: combat loop, shop, enterable houses, trails, minimap zoom (Steve)
+
+- **Bog slimes** (`src/world/monsters.js`): 14 hopping blobs, deterministic spawns away
+  from village/spawn/hill (a pack near the Hunting Point), wander + aggro at 9m, hop
+  physics with squash, contact damage + knockback, hp 3, pop → 1–3 token drops,
+  respawn 22s. Verified: 3 bites = kill; contact knocks Coal back and costs hearts.
+- **Combat** (`src/game/combat.js`): F attacks with the active weapon. Melee = bite 1 /
+  wooden sword 2 / iron sword 3 in a 1.9m front arc; **Kelp Bow** shoots arrows
+  (16 m/s, slight drop, damage 2 — hit test is a cylinder on the slime BODY, not the
+  ground-level root; that bug cost an arrow). 1/2 switches melee/bow. Tokens magnet-
+  pick-up at 1.25m. Hearts HUD + token counter + weapon row; hurt flash + blink invuln;
+  death → TRY AGAIN → respawn at spawn keeping tokens/gear.
+- **Armory shop** (`src/game/shop.js`): walks-up-to-door proximity (<5.2m) opens the
+  sheet; catalog: wooden/iron sword, kelp bow, leaf/iron shell (+1/+2 hearts). Gear is
+  VISIBLE on Coal (sword in right hand, bow in left, back shell). localStorage save of
+  tokens+gear (survives reload — verified).
+- **Enterable houses**: hollow builds (floor, 3 walls, doorway front, bed/table/crate),
+  wall colliders as circle-chains with a gap at the door; the house Coal is inside
+  ghost-fades (per-house cloned materials) so the chase cam can see him.
+- **Trails** (`src/world/trails.js`): A* over passable terrain (grade ≤ 0.55, no sea)
+  spawn↔village↔hill/hunt/shore, Chaikin-smoothed, rasterized to a canvas mask and
+  painted into terrain vertex colors; trees keep off them; minimap draws them.
+- **Minimap v2**: zoomed 170m player-centred viewport (north up), trails + landmark
+  dots + bigger heading arrow.
+- Shaded building walls were near-black → hemisphere light 0.8→1.0 (still moody on
+  north faces — proper fill/GI pass later).
+- lotl additions: attack/giveTokens/buy/openShop/closeShop/monsters/houses; getState.combat.
+
 ## 2026-08-27 (evening) — v0.4: the village + landmarks, minimap, click-to-walk (Steve)
 
 - **Village** (`src/world/village.js`), sites picked deterministically in terrain gen

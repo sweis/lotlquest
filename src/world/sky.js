@@ -76,7 +76,7 @@ export function buildSky(scene) {
       const low = 1 - THREE.MathUtils.clamp(Math.sin(dayT * Math.PI) * 1.6, 0, 1); // 1 near dawn/dusk
       sun.color.setHSL(0.09, 0.55, THREE.MathUtils.lerp(0.72, 0.55, low));
       sun.intensity = THREE.MathUtils.lerp(3.4, 1.6, low);
-      hemi.intensity = THREE.MathUtils.lerp(0.8, 0.45, low);
+      hemi.intensity = THREE.MathUtils.lerp(1.0, 0.5, low); // lifts shaded walls out of black
       HORIZON.setHSL(0.075, THREE.MathUtils.lerp(0.12, 0.42, low), THREE.MathUtils.lerp(0.86, 0.72, low));
       ZENITH.setHSL(0.58, THREE.MathUtils.lerp(0.45, 0.30, low), THREE.MathUtils.lerp(0.62, 0.45, low));
       skyMat.uniforms.horizonColor.value.copy(HORIZON);

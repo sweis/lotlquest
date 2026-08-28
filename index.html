@@ -78,6 +78,26 @@
     position: absolute; right: 14px; bottom: 14px; width: 176px; height: 176px;
     display: none; pointer-events: none; filter: drop-shadow(0 4px 14px rgba(8,14,22,.35));
   }
+
+  /* HUD: hearts + tokens + weapon */
+  #hud { position: absolute; top: 12px; left: 12px; display: none; flex-direction: column; gap: 4px; pointer-events: none; }
+  #hearts { font-size: 24px; letter-spacing: 2px; text-shadow: 0 1px 3px rgba(8,14,22,.5); }
+  #hearts .full { color: #e5484d; }
+  #hearts .empty { color: rgba(240,244,248,.4); }
+  #tokenRow { font-size: 17px; color: #f4f8fb; font-weight: 600; display: flex; align-items: center; gap: 7px; text-shadow: 0 1px 3px rgba(8,14,22,.5); }
+  .coin { width: 14px; height: 14px; border-radius: 50%; background: #f4c95d; display: inline-block; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25); }
+  #weaponRow { font-size: 12px; color: #dfe9f2; letter-spacing: .06em; text-shadow: 0 1px 2px rgba(8,14,22,.5); }
+
+  #hurtflash { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(200,50,40,.5)); opacity: 0; transition: opacity .18s; }
+  #hurtflash.show { opacity: 1; }
+
+  /* shop rows */
+  .shopItem { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 8px 0; border-bottom: 1px solid rgba(30,40,52,.1); }
+  .shopItem .info { display: flex; flex-direction: column; }
+  .shopItem .info span { font-size: 12px; color: #66727f; max-width: 320px; }
+  .shopItem .buy { margin: 0; padding: 7px 16px; border: 0; border-radius: 999px; cursor: pointer; background: #f4c95d; color: #27303c; font-weight: 600; white-space: nowrap; }
+  .shopItem .buy:disabled { background: #d8dde2; color: #8a949e; cursor: default; }
+  #shopTok { margin-bottom: 8px; color: #37424f; display: flex; align-items: center; gap: 6px; }
 </style>
 <script type="importmap">
   { "imports": { "three": "./vendor/three/three.module.min.js" } }
@@ -97,6 +117,13 @@
 <div id="help" class="sheet ui"><h2>How to play</h2><div id="helpBody"></div><button id="helpClose">Close</button></div>
 <div id="banner" class="ui"></div>
 <div id="toast" class="ui"></div>
+<div id="hud" class="ui">
+  <div id="hearts"></div>
+  <div id="tokenRow"><span class="coin"></span><span id="tokenCount">0</span></div>
+  <div id="weaponRow"></div>
+</div>
+<div id="shop" class="sheet ui"><h2>The Armory</h2><div id="shopTok"></div><div id="shopItems"></div><button id="shopClose">Leave</button></div>
+<div id="hurtflash"></div>
 <canvas id="minimap"></canvas>
 <div id="diag"></div>
 <div id="ctxlost" class="ui">Graphics reset — tap to reload</div>

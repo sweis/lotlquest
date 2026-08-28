@@ -37,18 +37,43 @@ function mesh(geo, mat, parent, x = 0, y = 0, z = 0) {
 }
 
 function house(rng) {
+  // hollow and enterable: floor, three solid walls, a doorway front, furniture
   const g = new THREE.Group();
-  const w = 3.4 + rng() * 1.0, d = 3.0 + rng() * 0.8, h = 2.2 + rng() * 0.4;
-  const wall = MAT.plaster[(rng() * MAT.plaster.length) | 0];
-  const roof = MAT.roof[(rng() * MAT.roof.length) | 0];
-  mesh(new THREE.BoxGeometry(w, h, d), wall, g, 0, h / 2 - 0.06, 0);
-  const cone = mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.82, 1.5 + rng() * 0.4, 4), roof, g, 0, h + 0.68, 0);
+  const w = 3.6 + rng() * 1.0, d = 3.2 + rng() * 0.8, h = 2.3 + rng() * 0.4;
+  const wallMat = MAT.plaster[(rng() * MAT.plaster.length) | 0].clone();
+  const roofMat = MAT.roof[(rng() * MAT.roof.length) | 0].clone();
+  const T = 0.15, doorW = 1.05, doorH = 1.65;
+
+  mesh(new THREE.BoxGeometry(w, 0.14, d), MAT.wood, g, 0, 0.07, 0); // floor
+  mesh(new THREE.BoxGeometry(w, h, T), wallMat, g, 0, h / 2, -(d - T) / 2); // back
+  mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, -(w - T) / 2, h / 2, 0); // left
+  mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, (w - T) / 2, h / 2, 0);  // right
+  const segW = (w - doorW) / 2; // front, split around the doorway
+  mesh(new THREE.BoxGeometry(segW, h, T), wallMat, g, -(doorW + segW) / 2, h / 2, (d - T) / 2);
+  mesh(new THREE.BoxGeometry(segW, h, T), wallMat, g, (doorW + segW) / 2, h / 2, (d - T) / 2);
+  mesh(new THREE.BoxGeometry(doorW, h - doorH, T), wallMat, g, 0, doorH + (h - doorH) / 2, (d - T) / 2);
+  const cone = mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.82, 1.5 + rng() * 0.4, 4), roofMat, g, 0, h + 0.68, 0);
   cone.rotation.y = Math.PI / 4;
-  mesh(new THREE.BoxGeometry(0.85, 1.35, 0.1), MAT.woodDark, g, 0, 0.6, d / 2 + 0.02);
-  mesh(new THREE.BoxGeometry(0.55, 0.55, 0.08), MAT.window, g, -w * 0.28, 1.35, d / 2 + 0.02);
-  mesh(new THREE.BoxGeometry(0.55, 0.55, 0.08), MAT.window, g, w * 0.28, 1.35, d / 2 + 0.02);
-  if (rng() > 0.5) mesh(new THREE.BoxGeometry(0.4, 1.0, 0.4), MAT.stone, g, w * 0.3, h + 0.75, -d * 0.2);
-  return { g, r: Math.max(w, d) * 0.72 };
+  mesh(new THREE.BoxGeometry(0.55, 0.55, 0.08), MAT.window, g, -w * 0.30, 1.45, (d - T) / 2 + 0.06);
+  mesh(new THREE.BoxGeometry(0.55, 0.55, 0.08), MAT.window, g, w * 0.30, 1.45, (d - T) / 2 + 0.06);
+
+  // furniture: bed in a back corner, table, a crate by the door
+  mesh(new THREE.BoxGeometry(0.85, 0.32, 1.6), MAT.wood, g, -w / 2 + 0.65, 0.3, -d / 2 + 1.05);
+  mesh(new THREE.BoxGeometry(0.6, 0.14, 0.45), MAT.window, g, -w / 2 + 0.65, 0.52, -d / 2 + 0.5);
+  mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.07, 10), MAT.woodDark, g, w / 2 - 0.85, 0.72, -d / 2 + 0.9);
+  mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.7, 6), MAT.woodDark, g, w / 2 - 0.85, 0.36, -d / 2 + 0.9);
+  if (rng() > 0.45) mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), MAT.wood, g, w / 2 - 0.55, 0.25, d / 2 - 0.7);
+
+  // collider centerlines (local coords), transformed to world by place()
+  const bx = (w - T) / 2, bz = (d - T) / 2, dhw = doorW / 2 + 0.1;
+  const walls = [
+    [-bx + 0.1, -bz, bx - 0.1, -bz],          // back
+    [-bx, -bz + 0.1, -bx, bz - 0.1],           // left
+    [bx, -bz + 0.1, bx, bz - 0.1],             // right
+    [-bx + 0.05, bz, -dhw, bz],                // front left of door
+    [dhw, bz, bx - 0.05, bz],                  // front right of door
+  ];
+  return { g, r: 0, walls, fade: { mats: [wallMat, roofMat], r: Math.max(w, d) * 0.62 } };
 }
 
 function armory() {
@@ -136,11 +161,24 @@ export function buildVillage(field, seed) {
   const obstacles = [];
   const V = WORLD.village;
 
+  const fadeHouses = []; // {x, z, r, mats} — main fades these when Coal is inside
+
   const place = (built, x, z, faceCenter = true, sink = 0.08) => {
     built.g.position.set(x, ground(x, z) - sink, z);
     if (faceCenter) built.g.rotation.y = Math.atan2(V.x - x, V.z - z);
     group.add(built.g);
     if (built.r > 0) obstacles.push({ x, z, r: built.r });
+    if (built.walls) { // hollow building: circle-chains along each wall segment
+      const rot = built.g.rotation.y, cos = Math.cos(rot), sin = Math.sin(rot);
+      for (const [x1, z1, x2, z2] of built.walls) {
+        const len = Math.hypot(x2 - x1, z2 - z1), steps = Math.max(1, Math.ceil(len / 0.45));
+        for (let s = 0; s <= steps; s++) {
+          const lx = x1 + ((x2 - x1) * s) / steps, lz = z1 + ((z2 - z1) * s) / steps;
+          obstacles.push({ x: x + lx * cos + lz * sin, z: z - lx * sin + lz * cos, r: 0.3 });
+        }
+      }
+    }
+    if (built.fade) fadeHouses.push({ x, z, r: built.fade.r, mats: built.fade.mats });
     return built.g;
   };
 
@@ -293,5 +331,5 @@ export function buildVillage(field, seed) {
   ];
 
   group.userData.counts = { houses, stalls: 3, kelp: kelpSpots.length, landmarks: landmarks.length };
-  return { group, obstacles, landmarks };
+  return { group, obstacles, landmarks, fadeHouses };
 }

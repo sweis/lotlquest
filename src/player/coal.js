@@ -115,7 +115,63 @@ export function buildCoal() {
   blob.name = 'blobShadow';
   root.add(blob); // on root, not model — ignores the walk bob
 
-  let t = 0;
+  // ---- gear (bought at the armory) ----
+  const gearMats = {
+    wood: new THREE.MeshStandardMaterial({ color: 0x9a7648, roughness: 0.8 }),
+    iron: new THREE.MeshStandardMaterial({ color: 0xb9bec7, roughness: 0.35, metalness: 0.6 }),
+    grip: new THREE.MeshStandardMaterial({ color: 0x54432f, roughness: 0.9 }),
+    leaf: new THREE.MeshStandardMaterial({ color: 0x6fa053, roughness: 0.7 }),
+  };
+  let swordGroup = null, shellMesh = null;
+  function setSword(tier) { // 0 none, 1 wooden, 2 iron
+    if (swordGroup) { arms[1].remove(swordGroup); swordGroup = null; }
+    if (!tier) return;
+    swordGroup = new THREE.Group();
+    const bladeMat = tier === 2 ? gearMats.iron : gearMats.wood;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.5, 0.09), bladeMat);
+    blade.position.y = 0.36; blade.castShadow = true;
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.14, 4), bladeMat);
+    tip.position.y = 0.66; tip.rotation.y = Math.PI / 4; tip.castShadow = true;
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.05, 0.12), gearMats.grip);
+    guard.position.y = 0.1;
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.16, 6), gearMats.grip);
+    swordGroup.add(blade, tip, guard, grip);
+    swordGroup.position.set(0, -0.17, 0.04);
+    swordGroup.rotation.x = Math.PI / 2.6; // held forward
+    arms[1].add(swordGroup);
+  }
+  let bowGroup = null;
+  function setBow(tier) { // shown in the left hand while the bow is active
+    if (bowGroup) { arms[0].remove(bowGroup); bowGroup = null; }
+    if (!tier) return;
+    bowGroup = new THREE.Group();
+    const arc = new THREE.Mesh(
+      new THREE.TorusGeometry(0.3, 0.022, 6, 14, Math.PI * 1.1), gearMats.wood);
+    arc.rotation.z = -Math.PI * 0.55;
+    const string = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.55, 0.008), gearMats.grip);
+    string.position.x = -0.03;
+    bowGroup.add(arc, string);
+    bowGroup.position.set(0, -0.17, 0.05);
+    bowGroup.rotation.set(0, Math.PI / 2, 0); // arc faces forward
+    bowGroup.traverse((o) => { o.castShadow = true; });
+    arms[0].add(bowGroup);
+  }
+  function setShell(tier) { // 0 none, 1 leaf, 2 iron
+    if (shellMesh) { model.remove(shellMesh); shellMesh = null; }
+    if (!tier) return;
+    shellMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.265, 16, 12, 0, Math.PI), // back half-shell
+      tier === 2 ? gearMats.iron : gearMats.leaf);
+    shellMesh.position.set(0, 0.53, -0.03);
+    shellMesh.rotation.y = Math.PI; // opening faces forward → covers the back
+    shellMesh.scale.set(1.06, 1.12, 1.0);
+    shellMesh.castShadow = true;
+    model.add(shellMesh);
+  }
+
+  let t = 0, atkT = 0;
+  const ATK_DUR = 0.3;
+  function playAttack() { atkT = ATK_DUR; }
   function animate(dt, speed, grounded) {
     const walk = Math.min(speed / 3.2, 1.6);
     t += dt * (2.0 + speed * 3.0);
@@ -143,7 +199,19 @@ export function buildCoal() {
     for (let i = 0; i < gills.length; i++) {
       gills[i].rotation.z = gills[i].userData.baseZ + Math.sin(t * 0.8 + i) * 0.06;
     }
+
+    // attack overrides the right arm: quick overhead chomp-swing + lunge
+    if (atkT > 0) {
+      atkT = Math.max(0, atkT - dt);
+      const k = atkT / ATK_DUR;               // 1 → 0
+      arms[1].rotation.x = -2.6 * Math.sin(k * Math.PI); // wind up and slash
+      model.rotation.x += 0.22 * Math.sin(k * Math.PI);
+      head.rotation.x += 0.3 * Math.sin(k * Math.PI);
+    }
   }
 
-  return { root, model, animate };
+  return {
+    root, model, animate, playAttack, setSword, setBow, setShell,
+    parts: { head, torso, arms, legs, tail },
+  };
 }

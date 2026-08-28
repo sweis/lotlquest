@@ -6,10 +6,14 @@ import { buildSky } from './world/sky.js';
 import { buildWater } from './world/water.js';
 import { buildVegetation } from './world/vegetation.js';
 import { buildVillage } from './world/village.js';
+import { buildTrails } from './world/trails.js';
+import { buildMonsters } from './world/monsters.js';
 import { buildCoal } from './player/coal.js';
 import { createController } from './player/controller.js';
 import { createCamera } from './game/camera.js';
 import { createMinimap } from './game/minimap.js';
+import { createCombat } from './game/combat.js';
+import { createShop } from './game/shop.js';
 import { createOverlay } from './debug/overlay.js';
 
 const params = new URLSearchParams(location.search);
@@ -37,8 +41,8 @@ document.getElementById('ctxlost').addEventListener('pointerdown', () => locatio
 const scene = new THREE.Scene();
 
 // ---------------------------------------------------------------- world
-let field, terrain, vegetation, village, peakSpot;
-let minimap = null;
+let field, terrain, vegetation, village, monsters, peakSpot;
+let minimap = null, combat = null;
 const OBSTACLES = []; // building colliders, refilled on world build
 const water = buildWater();
 scene.add(water);
@@ -66,21 +70,32 @@ function buildWorld(newSeed) {
     scene.remove(village.group);
     village.group.traverse((o) => o.geometry && o.geometry.dispose());
   }
+  if (monsters) monsters.dispose(scene);
   field = makeHeightField(seed);
   terrain = buildTerrainMesh(field);
+  buildTrails(field, terrain); // paints paths into the terrain colors, sets WORLD.trails
   vegetation = buildVegetation(field, seed);
   village = buildVillage(field, seed);
+  monsters = buildMonsters(field, seed, scene);
   scene.add(terrain, vegetation, village.group);
   OBSTACLES.length = 0;
   OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles);
   peakSpot = findPeak();
-  if (minimap) { minimap.rebuild(); minimap.setLandmarks(village.landmarks); }
+  if (minimap) {
+    minimap.rebuild();
+    minimap.setLandmarks(village.landmarks);
+    minimap.setTrails(WORLD.trails);
+  }
+  if (combat) combat.setMonsters(monsters);
 }
 buildWorld(seed);
 // live reference so setSeed() swaps terrain under everyone at once.
 // groundAt = the rendered mesh surface (installed by buildTerrainMesh) — all
 // gameplay stands on that, never on the analytic field (floats at crests).
-const fieldRef = { heightAt: (x, z) => field.groundAt(x, z) };
+const fieldRef = {
+  heightAt: (x, z) => field.groundAt(x, z),
+  groundAt: (x, z) => field.groundAt(x, z),
+};
 
 // ---------------------------------------------------------------- player + camera
 const coal = buildCoal();
@@ -91,6 +106,49 @@ controller.state.heading = 0; // face island centre (+Z)
 camera.snapBehind(controller.state);
 minimap = createMinimap(fieldRef);
 minimap.setLandmarks(village.landmarks);
+minimap.setTrails(WORLD.trails);
+
+// ---------------------------------------------------------------- combat + shop
+function updateHUD() {
+  if (!combat) return; // called once during combat's own construction
+  const hpEl = document.getElementById('hearts');
+  const slots = combat.maxHp() / 2;
+  let html = '';
+  for (let i = 0; i < slots; i++) {
+    const left = combat.state.hp - i * 2;
+    if (left >= 2) html += '<span class="full">♥</span>';
+    else if (left === 1) html += '<span class="full" style="opacity:.55">♥</span>';
+    else html += '<span class="empty">♥</span>';
+  }
+  hpEl.innerHTML = html;
+  document.getElementById('tokenCount').textContent = combat.state.tokens;
+  const wnames = { melee: ['Bite', 'Wooden Sword', 'Iron Sword'][combat.state.melee], bow: 'Kelp Bow' };
+  document.getElementById('weaponRow').textContent =
+    wnames[combat.state.weapon] + (combat.state.bow ? '  ·  1/2 to switch' : '') + '  ·  F to attack';
+}
+combat = createCombat({ scene, coal, controller, field: fieldRef, onChange: updateHUD });
+combat.setMonsters(monsters);
+updateHUD();
+const shop = createShop(combat);
+document.getElementById('shopClose').addEventListener('click', () => shop.close());
+let shopReopenBlock = false;
+
+function onPlayerDeath() {
+  setPhase('lost');
+  setTimeout(() => {
+    controller.teleport(WORLD.spawn.x, WORLD.spawn.z, 0);
+    camera.snapBehind(controller.state);
+    combat.respawn();
+    setPhase('playing');
+  }, 2200);
+}
+
+window.addEventListener('keydown', (e) => {
+  if (phase !== 'playing' || shop.isOpen()) return;
+  if (e.code === 'KeyF' || e.key === 'f' || e.key === 'F') { if (!e.repeat) combat.tryAttack(); }
+  if (e.code === 'Digit1' || e.key === '1') combat.setWeapon('melee');
+  if (e.code === 'Digit2' || e.key === '2') combat.setWeapon('bow');
+});
 
 // ---------------------------------------------------------------- click-to-walk
 const walkMarker = new THREE.Mesh(
@@ -152,6 +210,8 @@ const CONTROLS = [
   ['A / D', 'turn left / right'],
   ['Q / E', 'sidestep'],
   ['click / tap ground', 'walk there'],
+  ['F', 'attack (bite, sword, or bow)'],
+  ['1 / 2', 'switch melee / bow'],
   ['Space', 'jump'],
   ['drag mouse', 'orbit camera — it holds that angle as you move'],
   ['scroll', 'zoom camera'],
@@ -161,8 +221,8 @@ const CONTROLS = [
   ['`', 'diagnostics overlay'],
 ];
 const GOALS = [
-  'Explore the island as Coal the axolotl.',
-  'Visit the village: the town square, the food market and the armory.',
+  'Explore the island as Coal the axolotl — follow the trails.',
+  'Pop bog slimes (F) for tokens; walk to the armory door to buy weapons and armor.',
   'Climb Hope of the Axolotls Hill, wade the Kelp Grounds, scout the Hunting Point.',
 ];
 
@@ -185,7 +245,10 @@ function setPhase(p) {
   bannerEl.style.display = (phase === 'won' || phase === 'lost') ? 'block' : 'none';
   if (phase === 'won') bannerEl.textContent = 'YOU WIN';
   if (phase === 'lost') bannerEl.textContent = 'TRY AGAIN';
-  if (phase === 'playing') document.getElementById('minimap').style.display = 'block';
+  if (phase === 'playing') {
+    document.getElementById('minimap').style.display = 'block';
+    document.getElementById('hud').style.display = 'flex';
+  }
 }
 
 // ------------------------------------------------------- landmark discovery
@@ -213,6 +276,7 @@ document.getElementById('playBtn').addEventListener('click', () => setPhase('pla
 document.getElementById('resumeBtn').addEventListener('click', () => setPhase('playing'));
 document.getElementById('helpClose').addEventListener('click', () => { helpEl.style.display = 'none'; });
 window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && shop.isOpen()) { shop.close(); shopReopenBlock = true; return; }
   if (e.key === 'Escape' && phase === 'playing') setPhase('paused');
   else if (e.key === 'Escape' && phase === 'paused') setPhase('playing');
   if (e.key === '?') helpEl.style.display = helpEl.style.display === 'block' ? 'none' : 'block';
@@ -225,9 +289,17 @@ const frameMs = new Float32Array(120); let frameIdx = 0, frameCount = 0;
 let drawCalls = 0, triangles = 0;
 
 function simTick(dt) {
-  const paused = phase !== 'playing';
+  const paused = phase !== 'playing' || shop.isOpen();
   controller.update(paused ? 0 : dt); // tank controls — camera-independent
   coal.animate(dt, paused ? 0 : controller.state.speed, controller.state.grounded);
+  if (!paused) {
+    combat.update(dt);
+    monsters.update(dt, controller.state, {
+      contact: (s) => {
+        if (combat.damagePlayer(1, s.mesh.position.x, s.mesh.position.z) === 'died') onPlayerDeath();
+      },
+    });
+  }
   simTime += dt;
 }
 
@@ -251,6 +323,25 @@ function frame(now) {
   overlay.tick(dt);
   if (phase === 'playing') updateLandmarks();
   minimap.draw(controller.state);
+
+  // armory shop opens when Coal walks up to the door
+  if (phase === 'playing') {
+    const arm = village.landmarks.find((l) => l.name === 'The Armory');
+    const dArm = Math.hypot(controller.state.pos.x - arm.x, controller.state.pos.z - arm.z);
+    if (dArm < 5.2 && !shop.isOpen() && !shopReopenBlock) { shop.open(); controller.keys.clear(); }
+    if (dArm > 7) shopReopenBlock = false;
+    if (dArm > 7 && shop.isOpen()) shop.close();
+  }
+
+  // fade the house Coal is inside so the camera can see him
+  for (const h of village.fadeHouses) {
+    const inside = Math.hypot(controller.state.pos.x - h.x, controller.state.pos.z - h.z) < h.r * 0.8;
+    for (const m of h.mats) {
+      const target = inside ? 0.28 : 1;
+      m.opacity += (target - m.opacity) * (1 - Math.exp(-10 * dt));
+      m.transparent = m.opacity < 0.995;
+    }
+  }
 
   // walk marker: visible while a click target is active, gentle pulse
   const wt = controller.state.walkTarget;
@@ -303,6 +394,12 @@ function getState() {
     orbit: { yawOffset: camera.orbit.yawOffset, pitch: camera.orbit.pitch, dist: camera.orbit.dist },
     timeOfDay: sky.timeOfDay,
     walkTarget: s.walkTarget ? { ...s.walkTarget } : null,
+    combat: {
+      hp: combat.state.hp, maxHp: combat.maxHp(), tokens: combat.state.tokens,
+      melee: combat.state.melee, bow: combat.state.bow, shell: combat.state.shell,
+      weapon: combat.state.weapon, kills: combat.state.kills,
+      monstersAlive: monsters.aliveCount(), shopOpen: shop.isOpen(),
+    },
     entities: {
       ...(vegetation.userData.counts), ...(village.group.userData.counts),
       obstacles: OBSTACLES.length, spawned: spawned.children.length,
@@ -378,6 +475,13 @@ window.lotl = {
   },
   press(code) { window.dispatchEvent(new KeyboardEvent('keydown', { code, cancelable: true })); },
   release(code) { window.dispatchEvent(new KeyboardEvent('keyup', { code, cancelable: true })); },
+  attack() { combat.tryAttack(); },
+  giveTokens(n) { combat.state.tokens += n | 0; combat.save(); updateHUD(); },
+  buy(id) { const r = combat.buy(id); shop.render(); return r; },
+  openShop() { shop.open(); },
+  closeShop() { shop.close(); },
+  monsters: () => monsters,
+  houses: () => village.fadeHouses.map((h) => ({ x: h.x, z: h.z, r: h.r })),
 };
 
 const overlay = createOverlay(renderer, getState);

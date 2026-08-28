@@ -1,14 +1,15 @@
-// Corner minimap: island silhouette prerendered from the height field, with
-// landmark dots and a live player arrow. Toggle with M.
+// Corner minimap: zoomed, player-centred viewport of the island (north up)
+// with trails, landmark dots and a heading arrow. Toggle with M.
 
 import { WORLD } from '../world/terrain.js';
 
 const SIZE = 176;        // css px
-const RES = 132;         // island image resolution (world sampled every ~4m)
+const RES = 288;         // island image resolution (world sampled every ~1.8m)
+const VIEW = 170;        // metres of world shown across the map — the zoom
 
 const COLORS = {
   water: '#3a7796', sand: '#d8c093', grassLo: '#6f9c4b', grassHi: '#93b158',
-  rock: '#87837b', snow: '#e8ecee',
+  rock: '#87837b', snow: '#e8ecee', trail: '#b59b76',
 };
 
 export function createMinimap(field) {
@@ -18,9 +19,11 @@ export function createMinimap(field) {
   canvas.width = SIZE * dpr; canvas.height = SIZE * dpr;
   ctx.scale(dpr, dpr);
 
-  let island = null;   // prerendered ImageBitmap-ish canvas
+  let island = null;
   let landmarks = [];
+  let trails = [];
   let visible = true;
+  let view = { cx: 0, cz: 0 }; // current viewport centre (world coords)
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'm' || e.key === 'M') {
@@ -28,11 +31,6 @@ export function createMinimap(field) {
       canvas.style.display = visible ? 'block' : 'none';
     }
   });
-
-  function worldToMap(x, z) {
-    // north (+z) up
-    return [((x + WORLD.size / 2) / WORLD.size) * SIZE, ((WORLD.size / 2 - z) / WORLD.size) * SIZE];
-  }
 
   function prerender() {
     island = document.createElement('canvas');
@@ -46,7 +44,7 @@ export function createMinimap(field) {
     for (let py = 0; py < RES; py++) {
       for (let px = 0; px < RES; px++) {
         const x = (px / (RES - 1)) * WORLD.size - WORLD.size / 2;
-        const z = WORLD.size / 2 - (py / (RES - 1)) * WORLD.size;
+        const z = WORLD.size / 2 - (py / (RES - 1)) * WORLD.size; // north up
         const h = field.groundAt ? field.groundAt(x, z) : field.heightAt(x, z);
         const i = (py * RES + px) * 4;
         if (h < WORLD.seaLevel) put(i, COLORS.water);
@@ -59,46 +57,77 @@ export function createMinimap(field) {
     ic.putImageData(img, 0, 0);
   }
 
-  function setLandmarks(lms) { landmarks = lms; }
-  function rebuild() { prerender(); }
+  const setLandmarks = (lms) => { landmarks = lms; };
+  const setTrails = (t) => { trails = t ?? []; };
+  const rebuild = () => prerender();
+
+  // world → map px for the current viewport
+  function toMap(x, z) {
+    return [
+      SIZE / 2 + ((x - view.cx) / VIEW) * SIZE,
+      SIZE / 2 - ((z - view.cz) / VIEW) * SIZE,
+    ];
+  }
 
   function draw(playerState) {
     if (!visible || !island) return;
+    const clampR = WORLD.size / 2 - VIEW / 2;
+    view.cx = Math.max(-clampR, Math.min(clampR, playerState.pos.x));
+    view.cz = Math.max(-clampR, Math.min(clampR, playerState.pos.z));
+
     ctx.clearRect(0, 0, SIZE, SIZE);
     ctx.save();
-    // circular frame
     ctx.beginPath();
     ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 2, 0, Math.PI * 2);
     ctx.clip();
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(island, 0, 0, SIZE, SIZE);
 
-    // landmark dots (skip the big village ring)
-    ctx.fillStyle = '#f4c95d';
-    for (const lm of landmarks) {
-      if (lm.name === 'Axolotl Village') continue;
-      const [mx, my] = worldToMap(lm.x, lm.z);
-      ctx.beginPath(); ctx.arc(mx, my, 3, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(20,26,34,.65)'; ctx.lineWidth = 1; ctx.stroke();
+    // zoomed source rect of the prerendered island
+    const px = ((view.cx - VIEW / 2) + WORLD.size / 2) / WORLD.size * RES;
+    const py = ((WORLD.size / 2 - (view.cz + VIEW / 2))) / WORLD.size * RES;
+    const pw = (VIEW / WORLD.size) * RES;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(island, px, py, pw, pw, 0, 0, SIZE, SIZE);
+
+    // trails
+    ctx.strokeStyle = COLORS.trail;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = ctx.lineJoin = 'round';
+    for (const path of trails) {
+      ctx.beginPath();
+      let first = true;
+      for (const p of path) {
+        const [mx, my] = toMap(p.x, p.z);
+        if (first) { ctx.moveTo(mx, my); first = false; } else ctx.lineTo(mx, my);
+      }
+      ctx.stroke();
     }
 
-    // player arrow
-    const [px, py] = worldToMap(playerState.pos.x, playerState.pos.z);
-    ctx.translate(px, py);
+    // landmark dots
+    for (const lm of landmarks) {
+      if (lm.name === 'Axolotl Village') continue;
+      const [mx, my] = toMap(lm.x, lm.z);
+      if (mx < -8 || my < -8 || mx > SIZE + 8 || my > SIZE + 8) continue;
+      ctx.fillStyle = '#f4c95d';
+      ctx.beginPath(); ctx.arc(mx, my, 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(20,26,34,.7)'; ctx.lineWidth = 1.2; ctx.stroke();
+    }
+
+    // player arrow — points the way Coal is facing (north up)
+    const [ax, ay] = toMap(playerState.pos.x, playerState.pos.z);
+    ctx.translate(ax, ay);
     ctx.rotate(playerState.heading + Math.PI); // arrow drawn tip-down; heading 0 (+z) → up
     ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = 'rgba(20,26,34,.8)'; ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(20,26,34,.85)'; ctx.lineWidth = 1.4;
     ctx.beginPath();
-    ctx.moveTo(0, 6.5); ctx.lineTo(4.2, -4.5); ctx.lineTo(0, -1.8); ctx.lineTo(-4.2, -4.5);
+    ctx.moveTo(0, 9); ctx.lineTo(6, -6.5); ctx.lineTo(0, -2.6); ctx.lineTo(-6, -6.5);
     ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
 
-    // ring border
     ctx.beginPath();
     ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 1.5, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(248,250,252,.85)'; ctx.lineWidth = 3; ctx.stroke();
   }
 
   prerender();
-  return { draw, setLandmarks, rebuild };
+  return { draw, setLandmarks, setTrails, rebuild };
 }
