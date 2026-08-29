@@ -1,5 +1,24 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-28 — v0.9: mobile touch controls, square spawn, minimap upgrades (Steve)
+
+- **Touch controls** (`src/game/touch.js`): virtual joystick lower-left (pointer-events,
+  46px throw, 0.08 dead zone; >0.85 deflection = run; direction mapped against the
+  camera frame CAPTURED AT TOUCH START so a held stick can't feedback with the
+  following camera) + gold ⚔ attack button lower-right. Shown on coarse-pointer/touch
+  devices, force with `?touch=1`. controller.setStick/clearStick — priority:
+  keys > stick > click-to-walk.
+- **Layout**: minimap upper-LEFT; hearts/tokens/weapon HUD upper-right under a new
+  round **? help button** (also the only help access on mobile); dev diag moved below
+  the map.
+- **Spawn → town square** (just south of the well, facing it). Terrain keeps the old
+  coastal spot as `WORLD.landing` (beach flatten + the village↔beach trail use it).
+- **Minimap dots**: villagers green, enemies red — enemies only within 35m of Coal.
+- Verified: square spawn (5m from center), stick drive via pointer events (run 8.2,
+  stopped correctly at the well collider), real attack-button click hit a slime,
+  ? opens help, touch auto-detect ON under mobile emulation (375×812 portrait layout
+  screenshot) and OFF on desktop; clean console.
+
 ## 2026-08-28 — v0.8: village NPCs — Matcha, Spark, Bubble (Steve, with art)
 
 - `buildCoal` refactored into `buildAxolotl(opts)` (colors, eye style, brows) —

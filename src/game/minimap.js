@@ -71,7 +71,17 @@ export function createMinimap(field) {
     ];
   }
 
-  function draw(playerState) {
+  const ENEMY_VIS = 35; // metres — enemies only show when nearby
+
+  function dot(x, z, fill) {
+    const [mx, my] = toMap(x, z);
+    if (mx < -8 || my < -8 || mx > SIZE + 8 || my > SIZE + 8) return;
+    ctx.fillStyle = fill;
+    ctx.beginPath(); ctx.arc(mx, my, 3.6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(20,26,34,.7)'; ctx.lineWidth = 1.2; ctx.stroke();
+  }
+
+  function draw(playerState, dynamic = {}) {
     if (!visible || !island) return;
     const clampR = WORLD.size / 2 - VIEW / 2;
     view.cx = Math.max(-clampR, Math.min(clampR, playerState.pos.x));
@@ -104,14 +114,18 @@ export function createMinimap(field) {
       ctx.stroke();
     }
 
-    // landmark dots
+    // landmark dots (gold), villagers (green), nearby enemies (red)
     for (const lm of landmarks) {
       if (lm.name === 'Axolotl Village') continue;
-      const [mx, my] = toMap(lm.x, lm.z);
-      if (mx < -8 || my < -8 || mx > SIZE + 8 || my > SIZE + 8) continue;
-      ctx.fillStyle = '#f4c95d';
-      ctx.beginPath(); ctx.arc(mx, my, 3.6, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(20,26,34,.7)'; ctx.lineWidth = 1.2; ctx.stroke();
+      dot(lm.x, lm.z, '#f4c95d');
+    }
+    for (const n of dynamic.npcs ?? []) {
+      dot(n.ax.root.position.x, n.ax.root.position.z, '#5fbf6a');
+    }
+    for (const s of dynamic.monsters ?? []) {
+      if (!s.alive) continue;
+      const d = Math.hypot(s.mesh.position.x - playerState.pos.x, s.mesh.position.z - playerState.pos.z);
+      if (d < ENEMY_VIS) dot(s.mesh.position.x, s.mesh.position.z, '#e5484d');
     }
 
     // player arrow — points the way Coal is facing (north up)

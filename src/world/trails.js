@@ -99,7 +99,8 @@ function smooth(path) { // one Chaikin pass — keeps grid paths from zigzagging
 
 export function buildTrails(field, terrainMesh) {
   const ground = field.groundAt;
-  const V = WORLD.village, S = WORLD.spawn;
+  const V = WORLD.village;
+  const S = WORLD.landing ?? WORLD.spawn; // beach trail runs village ↔ coast
 
   // the kelp trail ends at the shoreline, not in the water
   let shore = { x: S.x, z: S.z };

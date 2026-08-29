@@ -26,6 +26,7 @@ export function createController(initialField, playerRoot, obstacles = []) {
     speed: 0,
     swimming: false,
     walkTarget: null,    // {x,z} set by click-to-walk
+    stick: null,         // {ang, mag} from the virtual joystick
     stallTicks: 0,
   };
   state.pos.y = field.heightAt(state.pos.x, state.pos.z);
@@ -59,9 +60,24 @@ export function createController(initialField, playerRoot, obstacles = []) {
     let drive = (keys.has('f') ? 1 : 0) - (keys.has('b') ? BACK_FACTOR : 0);
     const strafe = (keys.has('sr') ? 1 : 0) - (keys.has('sl') ? 1 : 0);
 
-    if (turn !== 0 || drive !== 0 || strafe !== 0) state.walkTarget = null; // manual input wins
+    const manual = turn !== 0 || drive !== 0 || strafe !== 0;
+    if (manual) state.walkTarget = null; // manual input wins
 
-    if (state.walkTarget) {
+    let stickHandled = false;
+    const target = new THREE.Vector3();
+    if (!manual && state.stick) {
+      // virtual joystick: move toward a world direction, turning to face it.
+      // The direction was computed against the camera frame at touch start,
+      // so a held stick stays stable while the camera follows.
+      const { ang, mag } = state.stick;
+      let diff = ang - state.heading;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      const maxTurn = TURN_RATE * 1.8 * dt;
+      state.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
+      const spd = (mag > 0.85 ? RUN : WALK) * (state.swimming ? 0.55 : 1) * Math.min(mag * 1.25, 1);
+      target.set(Math.sin(ang) * spd, 0, Math.cos(ang) * spd);
+      stickHandled = true;
+    } else if (state.walkTarget) {
       // click-to-walk: steer toward the target, stop on arrival or when stuck
       const dx = state.walkTarget.x - state.pos.x, dz = state.walkTarget.z - state.pos.z;
       const dist = Math.hypot(dx, dz);
@@ -80,8 +96,7 @@ export function createController(initialField, playerRoot, obstacles = []) {
     } else {
       state.heading += turn * TURN_RATE * dt;
     }
-    const target = new THREE.Vector3();
-    if (drive !== 0 || strafe !== 0) {
+    if (!stickHandled && (drive !== 0 || strafe !== 0)) {
       const spd = (keys.has('run') ? RUN : WALK) * (state.swimming ? 0.55 : 1);
       const fx = Math.sin(state.heading), fz = Math.cos(state.heading);   // forward
       const rx = -fz, rz = fx;                                            // screen-right
@@ -148,6 +163,8 @@ export function createController(initialField, playerRoot, obstacles = []) {
   }
 
   function setWalkTarget(x, z) { state.walkTarget = { x, z }; state.stallTicks = 0; }
+  function setStick(ang, mag) { state.stick = { ang, mag }; state.walkTarget = null; }
+  function clearStick() { state.stick = null; }
 
   function teleport(x, z, heading) {
     state.pos.set(x, field.heightAt(x, z), z);
@@ -158,5 +175,5 @@ export function createController(initialField, playerRoot, obstacles = []) {
     playerRoot.rotation.y = state.heading;
   }
 
-  return { state, keys, update, teleport, setWalkTarget, setField(f) { field = f; } };
+  return { state, keys, update, teleport, setWalkTarget, setStick, clearStick, setField(f) { field = f; } };
 }

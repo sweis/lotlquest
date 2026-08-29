@@ -38,7 +38,8 @@ export function makeHeightField(seed) {
     if (rawHeightAt(0, z) > WORLD.seaLevel + 1.8 &&
         rawHeightAt(0, z + 10) > WORLD.seaLevel + 1.8) { spawnZ = z + 8; break; }
   }
-  WORLD.spawn = { x: 0, z: spawnZ };
+  // the coastal "landing" — anchors the beach flatten and the beach trail
+  WORLD.landing = { x: 0, z: spawnZ };
   const spawnH = Math.max(rawHeightAt(0, spawnZ), WORLD.seaLevel + 1.6);
 
   // ---- landmark site selection (deterministic, from the raw field) --------
@@ -54,6 +55,8 @@ export function makeHeightField(seed) {
   }
   const villageH = Math.min(Math.max(rawHeightAt(vSite.x, vSite.z), 3.6), 9);
   WORLD.village = { x: vSite.x, z: vSite.z, r: 34, h: villageH };
+  // the game starts in the town square, just south of the well
+  WORLD.spawn = { x: vSite.x, z: vSite.z - 4.5 };
 
   // Hope of the Axolotls Hill: the most PROMINENT knoll near the village —
   // a spot higher than its own surroundings, not a big-mountain flank
@@ -106,8 +109,8 @@ export function makeHeightField(seed) {
 
   function heightAt(x, z) {
     let h = rawHeightAt(x, z);
-    // gently level the spawn area toward its own natural height
-    const ds = Math.hypot(x - WORLD.spawn.x, z - WORLD.spawn.z);
+    // gently level the coastal landing so the beach stays easy ground
+    const ds = Math.hypot(x - WORLD.landing.x, z - WORLD.landing.z);
     h = lerp(spawnH, h, smoothstep(WORLD.spawnFlatR * 0.4, WORLD.spawnFlatR * 1.5, ds));
     // level the village site so buildings sit naturally
     const dv = Math.hypot(x - WORLD.village.x, z - WORLD.village.z);

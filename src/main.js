@@ -10,6 +10,7 @@ import { buildTrails } from './world/trails.js';
 import { buildMonsters } from './world/monsters.js';
 import { createNPCs } from './world/npcs.js';
 import { createDialog } from './game/dialog.js';
+import { createTouchControls } from './game/touch.js';
 import { buildCoal } from './player/coal.js';
 import { createController } from './player/controller.js';
 import { createCamera } from './game/camera.js';
@@ -136,6 +137,7 @@ updateHUD();
 // closing a shop (Leave, Esc, walking away) blocks reopening THAT shop until
 // Coal leaves its radius — otherwise proximity reopens the sheet next frame
 const dialog = createDialog();
+const touch = createTouchControls({ controller, combat, camera });
 const shop = createShop(combat, (closedMode) => { shopBlockMode = closedMode; });
 document.getElementById('shopClose').addEventListener('click', () => shop.close());
 let shopBlockMode = null;
@@ -276,8 +278,12 @@ function setPhase(p) {
   if (phase === 'playing') {
     document.getElementById('minimap').style.display = 'block';
     document.getElementById('hud').style.display = 'flex';
+    document.getElementById('helpBtn').style.display = 'block';
   }
 }
+document.getElementById('helpBtn').addEventListener('click', () => {
+  helpEl.style.display = helpEl.style.display === 'block' ? 'none' : 'block';
+});
 
 // ------------------------------------------------------- landmark discovery
 const toastEl = document.getElementById('toast');
@@ -357,7 +363,7 @@ function frame(now) {
   sky.updateShadowTarget(controller.state.pos);
   overlay.tick(dt);
   if (phase === 'playing') updateLandmarks();
-  minimap.draw(controller.state);
+  minimap.draw(controller.state, { npcs: npcs.list, monsters: monsters.slimes });
 
   // shops open when Coal walks up to their door/stalls
   if (phase === 'playing') {
@@ -440,6 +446,8 @@ function getState() {
       return { x: +d.x.toFixed(5), y: +d.y.toFixed(5), z: +d.z.toFixed(5) };
     })(),
     walkTarget: s.walkTarget ? { ...s.walkTarget } : null,
+    stick: s.stick ? { ...s.stick } : null,
+    touchControls: touch.enabled,
     combat: {
       hp: combat.state.hp, maxHp: combat.maxHp(), tokens: combat.state.tokens,
       melee: combat.state.melee, bow: combat.state.bow, shell: combat.state.shell,
