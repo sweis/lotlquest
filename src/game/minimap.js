@@ -4,7 +4,7 @@
 import { WORLD } from '../world/terrain.js';
 
 const SIZE = 176;        // css px
-const RES = 288;         // island image resolution (world sampled every ~1.8m)
+const RES = 384;         // island image resolution (world sampled every 2m)
 const VIEW = 170;        // metres of world shown across the map — the zoom
 
 const COLORS = {

@@ -1,5 +1,34 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-28 — v0.10: bigger island, flora kit, the Moxolotl Cave (Steve)
+
+- **Island 512→768m** (radius 190→290): terrain mesh scales with WORLD.size (384²
+  segments), world-bound/peak-scan/minimap (RES 384)/overview cam all derive from it.
+- **Flora** (vegetation.js rewrite, all instanced ~11 draws): broadleaf groves (240),
+  highland pines (140 — trunk + two jittered cone layers, h 8–24m bands), bushes (170),
+  dry coastal shrubs (120), flower meadows (340, noise-masked, 4 head colors), rocks 90.
+  Trunks/rocks solid; scatter avoids trails/landmarks. Slimes 14→20.
+- **Moxolotl Cave** (world/cave.js): terrain gen picks the most enclosed valley pocket
+  in the mountain core (WORLD.cave) and carves a 4.5m sinkhole pit; a rock portal +
+  20m ramp tunnel descends ~7.5m more into a torch-lit chamber (jittered BackSide dome,
+  stalagmites, 8 torches, 3 flickering PointLights at intensity ~55 — physical falloff
+  needs big numbers). floorAt() + a player-y-aware fieldRef.heightAt ground the player
+  underground; fieldRef.isDry keeps sub-sea cave floors from triggering swimming or the
+  deep-water gate. Landmark/toast/map-dot/teleport 'cave'. RESERVED: a character will
+  live here.
+- **Hard-won cave lessons**: ocean is now a RING (150–2000) — a full-world water plane
+  slices through any below-sea-level room as a translucent blue sheet; camera sea-clamp
+  skips dry cave ground; terrain material is DoubleSide (underground camera must never
+  x-ray the surface); the ramp foot must land EXACTLY on the chamber's flat circle and
+  be LINEAR (smoothstep peaks 1.5× steeper mid-slope → the 0.9 climb gate blocked the
+  exit); camera pulls in (indoor mode) when fieldRef.isDry.
+- **Steve's queued fixes**: Esc closes the Help sheet (was unhandled); house entry —
+  fade triggers earlier (r×1.05) and the chase camera blends to 2.7m indoors (no more
+  wall clipping); mobile: minimap 132px + toast moved below it (was buried under UI).
+- Verified: cave round trip walk (5.09 → −2.41 → 4.94), no swimming underground, torch
+  lighting reads warm, house fade+camera (op 0.55 mid-fade shot), Esc/help, mobile
+  layout, clean console.
+
 ## 2026-08-28 — v0.9: mobile touch controls, square spawn, minimap upgrades (Steve)
 
 - **Touch controls** (`src/game/touch.js`): virtual joystick lower-left (pointer-events,

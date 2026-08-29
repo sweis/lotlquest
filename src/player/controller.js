@@ -10,7 +10,7 @@ const WALK = 4.6, RUN = 8.2, ACCEL = 18;
 const TURN_RATE = 3.0;      // rad/s with A/D
 const BACK_FACTOR = 0.6, STRAFE_FACTOR = 0.8;
 const GRAVITY = 16, JUMP_V = 5.4;
-const MAX_R = 246;          // ocean ring — soft world bound
+const MAX_R = WORLD.size / 2 - 10; // ocean ring — soft world bound
 const MAX_DEPTH = 0.85;     // how deep Coal may wade
 const MAX_GRADE = 0.9;      // rise/run — faces steeper than ~42° can't be climbed
 
@@ -116,7 +116,8 @@ export function createController(initialField, playerRoot, obstacles = []) {
       if (rNew > MAX_R && rNew >= rCur) return true;
       const h1 = field.heightAt(tx, tz);
       const h0 = field.heightAt(state.pos.x, state.pos.z);
-      if (h1 < WORLD.seaLevel - MAX_DEPTH && h1 <= h0 + 1e-4) return true;
+      if (h1 < WORLD.seaLevel - MAX_DEPTH && h1 <= h0 + 1e-4 &&
+          !(field.isDry && field.isDry(tx, tz))) return true; // cave floors are dry
       for (let i = 0; i < obstacles.length; i++) { // buildings, rocks, trunks
         const o = obstacles[i];
         const dx = tx - o.x, dz = tz - o.z;
@@ -144,7 +145,8 @@ export function createController(initialField, playerRoot, obstacles = []) {
     state.pos.x = nx; state.pos.z = nz;
 
     const ground = field.heightAt(state.pos.x, state.pos.z);
-    state.swimming = ground < WORLD.seaLevel - 0.35;
+    state.swimming = ground < WORLD.seaLevel - 0.35 &&
+      !(field.isDry && field.isDry(state.pos.x, state.pos.z));
     const surfaceY = state.swimming ? WORLD.seaLevel - 0.18 : ground;
 
     if (keys.has('jump') && state.grounded) { state.vy = JUMP_V; state.grounded = false; }

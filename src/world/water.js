@@ -4,7 +4,9 @@ import * as THREE from 'three';
 import { WORLD } from './terrain.js';
 
 export function buildWater() {
-  const geo = new THREE.PlaneGeometry(4000, 4000, 1, 1);
+  // a RING, not a full plane: the island's core is solid mountain, and a
+  // world-spanning sheet at sea level would slice through the cave chamber
+  const geo = new THREE.RingGeometry(150, 2000, 64, 1);
   geo.rotateX(-Math.PI / 2);
   const mat = new THREE.MeshStandardMaterial({
     color: 0x3585a8,

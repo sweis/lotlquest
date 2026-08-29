@@ -40,9 +40,9 @@ export function buildMonsters(field, seed, scene) {
   const slimes = [];
 
   const V = WORLD.village, S = WORLD.spawn, H = WORLD.hunt;
-  for (let i = 0; i < 3000 && slimes.length < 14; i++) {
-    // bias a third of them toward the hunting point
-    const nearHunt = slimes.length >= 10;
+  for (let i = 0; i < 4000 && slimes.length < 20; i++) {
+    // bias a chunk of them toward the hunting point
+    const nearHunt = slimes.length >= 15;
     const cx = nearHunt ? H.x : (rng() - 0.5) * WORLD.size * 0.85;
     const cz = nearHunt ? H.z : (rng() - 0.5) * WORLD.size * 0.85;
     const x = cx + (rng() - 0.5) * (nearHunt ? 26 : 1);
@@ -52,6 +52,7 @@ export function buildMonsters(field, seed, scene) {
     if (Math.hypot(x - V.x, z - V.z) < 48) continue;   // village is safe
     if (Math.hypot(x - S.x, z - S.z) < 30) continue;   // so is the spawn beach
     if (Math.hypot(x - WORLD.hill.x, z - WORLD.hill.z) < 14) continue;
+    if (WORLD.cave && Math.hypot(x - WORLD.cave.x, z - WORLD.cave.z) < 16) continue;
     const { g, body } = buildSlimeMesh();
     g.position.set(x, h, z);
     scene.add(g);

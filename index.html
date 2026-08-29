@@ -136,6 +136,14 @@
   }
   #attackBtn:active { background: #ffd97a; transform: scale(.94); }
 
+  /* narrow screens: smaller map, and drop the place-name toast below the
+     top UI so it isn't buried under the map/HUD */
+  @media (max-width: 700px) {
+    #minimap { width: 132px; height: 132px; }
+    #toast { top: 176px; font-size: 14px; padding: 7px 20px; white-space: nowrap; }
+    #diag { top: 158px; }
+  }
+
   /* shop rows */
   .shopItem { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 8px 0; border-bottom: 1px solid rgba(30,40,52,.1); }
   .shopItem .info { display: flex; flex-direction: column; }

@@ -37,9 +37,10 @@ export function createCamera(renderer, field) {
   }, { passive: true });
 
   const FIXED = {
-    overview: { pos: new THREE.Vector3(0, 330, -330), look: new THREE.Vector3(0, 0, 20) },
+    overview: { pos: new THREE.Vector3(0, 470, -470), look: new THREE.Vector3(0, 0, 20) },
     'hud-check': { pos: new THREE.Vector3(40, 26, -190), look: new THREE.Vector3(0, 8, -60) },
   };
+  let indoorBlend = 0, indoorTarget = 0;
 
   function update(dt, playerState) {
     const p = playerState.pos;
@@ -56,16 +57,24 @@ export function createCamera(renderer, field) {
       return;
     }
 
-    // chase: hold the dragged offset relative to heading — no auto-recenter
+    // chase: hold the dragged offset relative to heading — no auto-recenter.
+    // Indoors the camera pulls in close so walls don't sit between it and Coal.
+    indoorBlend += (indoorTarget - indoorBlend) * (1 - Math.exp(-6 * dt));
+    const dist = orbit.dist + (Math.min(orbit.dist, 2.7) - orbit.dist) * indoorBlend;
     const yaw = playerState.heading + Math.PI + orbit.yawOffset;
     const cp = Math.cos(orbit.pitch), sp = Math.sin(orbit.pitch);
     desired.set(
-      p.x + Math.sin(yaw) * cp * orbit.dist,
-      p.y + sp * orbit.dist + 0.6,
-      p.z + Math.cos(yaw) * cp * orbit.dist,
+      p.x + Math.sin(yaw) * cp * dist,
+      p.y + sp * dist + 0.6,
+      p.z + Math.cos(yaw) * cp * dist,
     );
-    // keep above terrain and sea
-    const minY = Math.max(field.heightAt(desired.x, desired.z) + 0.5, WORLD.seaLevel + 0.4);
+    // keep above the local ground and the sea — but when the ground under the
+    // camera towers over Coal (cave roof, mountain wall), don't leap on top of
+    // it; hover just above his level instead
+    const gCam = field.heightAt(desired.x, desired.z);
+    const dry = field.isDry && field.isDry(desired.x, desired.z); // cave floors sit below sea level
+    let minY = Math.max(gCam + 0.5, dry ? -Infinity : WORLD.seaLevel + 0.4);
+    if (gCam > p.y + 3.5) minY = p.y + 0.35;
     if (desired.y < minY) desired.y = minY;
 
     const k = 1 - Math.exp(-8 * dt);
@@ -101,5 +110,7 @@ export function createCamera(renderer, field) {
     return Math.atan2(d.x, d.z);
   }
 
-  return { cam, orbit, update, setMode, snapBehind, moveYaw, get mode() { return mode; } };
+  function setIndoor(on) { indoorTarget = on ? 1 : 0; }
+
+  return { cam, orbit, update, setMode, snapBehind, moveYaw, setIndoor, get mode() { return mode; } };
 }

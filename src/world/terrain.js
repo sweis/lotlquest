@@ -5,10 +5,10 @@ import * as THREE from 'three';
 import { fbm, ridged, noise2, smoothstep } from '../util/noise.js';
 
 export const WORLD = {
-  size: 512,          // world extends ±256 on x/z
+  size: 768,          // world extends ±384 on x/z
   seaLevel: 2.0,
-  islandRadius: 190,
-  spawn: { x: 0, z: -140 },  // relocated onto the real coast per-seed below
+  islandRadius: 290,
+  spawn: { x: 0, z: -140 },  // relocated to the town square per-seed below
   spawnFlatR: 14,
 };
 
@@ -100,11 +100,37 @@ export function makeHeightField(seed) {
   }
   WORLD.hunt = { x: hunt.x, z: hunt.z };
 
+  // Moxolotl Cave: the most ENCLOSED valley pocket in the mountain core —
+  // low ground ringed by high ground (the inside of the U)
+  let cave = { x: 0, z: 80, score: -Infinity, dirX: 0, dirZ: 1 };
+  for (let cx = -110; cx <= 110; cx += 6) {
+    for (let cz = -110; cz <= 110; cz += 6) {
+      const own = rawHeightAt(cx, cz);
+      if (own < 6 || own > 16) continue;
+      if (Math.hypot(cx - vSite.x, cz - vSite.z) < 60) continue;
+      if (Math.hypot(cx - hill.x, cz - hill.z) < 25) continue;
+      let ring = 0; let hi = { h: -Infinity, x: cx, z: cz + 26 };
+      for (let k = 0; k < 8; k++) {
+        const sx = cx + Math.sin(k * 0.785) * 26, sz = cz + Math.cos(k * 0.785) * 26;
+        const h = rawHeightAt(sx, sz);
+        ring += h / 8;
+        if (h > hi.h) hi = { h, x: sx, z: sz };
+      }
+      const score = ring - own;
+      if (score > cave.score) {
+        const dl = Math.hypot(hi.x - cx, hi.z - cz) || 1;
+        cave = { x: cx, z: cz, score, dirX: (hi.x - cx) / dl, dirZ: (hi.z - cz) / dl };
+      }
+    }
+  }
+  WORLD.cave = { x: cave.x, z: cave.z, dirX: cave.dirX, dirZ: cave.dirZ, pitR: 6.5, pitDepth: 4.5 };
+
   // keep trees/rocks out of the built-up spots
   WORLD.landmarkExclusions = [
     { x: WORLD.village.x, z: WORLD.village.z, r: WORLD.village.r + 6 },
     { x: WORLD.hill.x, z: WORLD.hill.z, r: 9 },
     { x: WORLD.hunt.x, z: WORLD.hunt.z, r: 10 },
+    { x: WORLD.cave.x, z: WORLD.cave.z, r: 13 },
   ];
 
   function heightAt(x, z) {
@@ -115,6 +141,9 @@ export function makeHeightField(seed) {
     // level the village site so buildings sit naturally
     const dv = Math.hypot(x - WORLD.village.x, z - WORLD.village.z);
     h = lerp(WORLD.village.h, h, smoothstep(WORLD.village.r * 0.55, WORLD.village.r * 1.2, dv));
+    // sink the cave-entrance pit into the valley floor
+    const dcv = Math.hypot(x - WORLD.cave.x, z - WORLD.cave.z);
+    h -= WORLD.cave.pitDepth * (1 - smoothstep(WORLD.cave.pitR * 0.45, WORLD.cave.pitR * 1.15, dcv));
     return h;
   }
 
@@ -129,7 +158,7 @@ const COL = {
   snow:  new THREE.Color(0xe8ecee),
 };
 
-export function buildTerrainMesh(field, segments = 256) {
+export function buildTerrainMesh(field, segments = WORLD.size / 2) {
   const { size } = WORLD;
   const geo = new THREE.PlaneGeometry(size, size, segments, segments);
   geo.rotateX(-Math.PI / 2);
@@ -180,7 +209,8 @@ export function buildTerrainMesh(field, segments = 256) {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1.0, metalness: 0 });
+  // DoubleSide: an underground camera must see solid ground, never x-ray sky
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1.0, metalness: 0, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
   mesh.name = 'terrain';
