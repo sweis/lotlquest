@@ -217,5 +217,9 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     onChange();
   }
 
-  return { state, maxHp, update, tryAttack, damagePlayer, buy, buyFood, setWeapon, setMonsters, respawn, dropTokens, save };
+  function resetSave() {
+    try { localStorage.removeItem(SAVE_KEY); } catch { /* nothing to clear */ }
+  }
+
+  return { state, maxHp, update, tryAttack, damagePlayer, buy, buyFood, setWeapon, setMonsters, respawn, dropTokens, save, resetSave };
 }

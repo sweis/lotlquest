@@ -45,6 +45,7 @@
     margin-top: 14px; padding: 8px 26px; border: 0; border-radius: 999px; cursor: pointer;
     background: #27303c; color: #f4f8fb; font-size: 14px;
   }
+  .sheet button.danger { background: #b4433c; margin-left: 10px; }
 
   #banner {
     position: absolute; left: 50%; top: 18%; transform: translateX(-50%);
@@ -167,7 +168,7 @@
 </div>
 
 <div id="pause" class="sheet ui"><h2>Paused</h2><div id="pauseBody"></div><button id="resumeBtn">Resume</button></div>
-<div id="help" class="sheet ui"><h2>How to play</h2><div id="helpBody"></div><button id="helpClose">Close</button></div>
+<div id="help" class="sheet ui"><h2>How to play</h2><div id="helpBody"></div><button id="helpClose">Close</button><button id="resetSave" class="danger">Reset save</button></div>
 <div id="banner" class="ui"></div>
 <div id="dialog" class="ui"><div id="dialogName"></div><div id="dialogText"></div><div class="hint">click for more · Esc to close</div></div>
 <div id="toast" class="ui"></div>

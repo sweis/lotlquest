@@ -164,13 +164,26 @@ export function buildAxolotl(opts = {}) {
   // tail curling into a spiral behind (Storm).
   const tail = new THREE.Group(); tail.position.set(0, 0.32, -0.17); model.add(tail);
   if (C.tailStyle === 'curl') {
-    const curlGeo = new THREE.TorusGeometry(0.24, 0.06, 8, 20, 4.6);
+    // a coil hanging low behind, in the fore-aft plane, gap at the TOP where
+    // the root joins the body — gap-down reads as a letter C
+    const R = 0.185, TUBE = 0.055, ARC = 5.1;
+    const curlGeo = new THREE.TorusGeometry(R, TUBE, 8, 20, ARC);
+    curlGeo.rotateZ(-3.2);        // spin the gap up
+    curlGeo.rotateY(Math.PI / 2); // stand the coil fore-aft
     const curl = add(curlGeo, MAT.body, tail);
-    curl.position.set(0, 0.06, -0.22);
-    curl.rotation.set(0, Math.PI / 2, 1.1); // spiral stands sideways behind him
-    const tip = add(new THREE.ConeGeometry(0.05, 0.16, 6), MAT.body, tail);
-    tip.position.set(0, 0.3, -0.34);
-    tip.rotation.x = -0.9;
+    curl.position.set(0, -0.02, -0.24);
+    // round off the open torus ends
+    for (const a of [0, ARC]) {
+      const p = new THREE.Vector3(Math.cos(a) * R, Math.sin(a) * R, 0)
+        .applyAxisAngle(new THREE.Vector3(0, 0, 1), -3.2)
+        .applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+      const cap = add(new THREE.SphereGeometry(TUBE, 8, 6), MAT.body, tail);
+      cap.position.set(p.x, p.y - 0.02, p.z - 0.24);
+    }
+    // root stub from the lower back down into the coil
+    const stub = add(new THREE.CylinderGeometry(0.05, 0.065, 0.18, 6), MAT.body, tail);
+    stub.position.set(0, 0.08, -0.15);
+    stub.rotation.x = 0.75;
   } else {
     tail.rotation.x = 0.5; // droops toward the ground
     const tailGeo = new THREE.ConeGeometry(0.12, 0.5, 10);

@@ -285,6 +285,11 @@ function setPhase(p) {
 document.getElementById('helpBtn').addEventListener('click', () => {
   helpEl.style.display = helpEl.style.display === 'block' ? 'none' : 'block';
 });
+document.getElementById('resetSave').addEventListener('click', () => {
+  if (!confirm('Reset your save? Tokens and gear will be lost.')) return;
+  combat.resetSave();
+  location.reload();
+});
 
 // ------------------------------------------------------- landmark discovery
 const toastEl = document.getElementById('toast');
