@@ -16,6 +16,9 @@ export function buildAxolotl(opts = {}) {
     eyeStyle: 'line',      // 'line' (determined slits) | 'round' (with iris)
     iris: 0x3fa8b8,        // used by 'round'
     brows: null,           // color → draws heavy eyebrows (Matcha)
+    lids: false,           // serene half-closed lids over round eyes (Hope)
+    circlet: null,         // {band, gem} → golden circlet with a crystal (Hope)
+    rings: null,           // color → rings on arms, legs and tail (Hope)
     ...opts,
   };
   const MAT = {
@@ -103,6 +106,25 @@ export function buildAxolotl(opts = {}) {
       brow.position.set(0.16 * side, 0.17, 0.20);
       brow.rotation.z = side * 0.32;          // inner ends down — stern
     }
+    if (C.lids) { // skin-colored lids drooping over the eye tops — serene
+      const lid = add(new THREE.BoxGeometry(0.17, 0.055, 0.07), MAT.body, head);
+      lid.position.set(0.215 * side, 0.115, 0.19);
+      lid.rotation.z = -side * 0.14;          // outer ends down — sleepy calm
+    }
+  }
+
+  if (C.circlet) {
+    const bandMat = new THREE.MeshStandardMaterial({ color: C.circlet.band, roughness: 0.35, metalness: 0.7 });
+    const band = add(new THREE.TorusGeometry(0.295, 0.028, 8, 22), bandMat, head);
+    band.position.y = 0.15;
+    band.rotation.x = Math.PI / 2;
+    band.scale.set(1.22, 1.0, 0.98);          // hugs the wide skull
+    const gemMat = new THREE.MeshStandardMaterial({
+      color: C.circlet.gem, roughness: 0.25, emissive: C.circlet.gem, emissiveIntensity: 0.5,
+    });
+    const gem = add(new THREE.OctahedronGeometry(0.07), gemMat, head);
+    gem.position.set(0, 0.185, 0.29);
+    gem.scale.set(0.8, 1.25, 0.6);
   }
 
   // external gills — 3 long frilly stalks per side, flared up and out so they
@@ -132,6 +154,25 @@ export function buildAxolotl(opts = {}) {
   // dorsal ridge down the back of the torso (axolotl fin)
   const ridge = add(new THREE.SphereGeometry(0.14, 10, 8), MAT.belly);
   ridge.position.set(0, 0.62, -0.185); ridge.scale.set(0.10, 0.85, 0.4);
+
+  if (C.rings) { // golden bands on wrists, ankles and tail (see the art)
+    const ringMat = new THREE.MeshStandardMaterial({ color: C.rings, roughness: 0.35, metalness: 0.7 });
+    for (const arm of arms) {
+      const r = add(new THREE.TorusGeometry(0.062, 0.017, 6, 14), ringMat, arm);
+      r.position.y = -0.13;
+      r.rotation.x = Math.PI / 2;
+    }
+    for (const hip of legs) {
+      const r = add(new THREE.TorusGeometry(0.078, 0.018, 6, 14), ringMat, hip);
+      r.position.y = -0.17;
+      r.rotation.x = Math.PI / 2;
+    }
+    for (const tz of [-0.12, -0.26]) { // tapering with the tail
+      const r = add(new THREE.TorusGeometry(0.11 + tz * 0.12, 0.018, 6, 14), ringMat, tail);
+      r.position.z = tz;
+      r.scale.set(0.6, 1.05, 1);
+    }
+  }
 
   // blob contact shadow — grounds him visually even where the sun shadow falls away
   const blob = new THREE.Mesh(

@@ -8,7 +8,6 @@ import { buildVegetation } from './world/vegetation.js';
 import { buildVillage } from './world/village.js';
 import { buildTrails } from './world/trails.js';
 import { buildMonsters } from './world/monsters.js';
-import { buildCave } from './world/cave.js';
 import { createNPCs } from './world/npcs.js';
 import { createDialog } from './game/dialog.js';
 import { createTouchControls } from './game/touch.js';
@@ -45,7 +44,7 @@ document.getElementById('ctxlost').addEventListener('pointerdown', () => locatio
 const scene = new THREE.Scene();
 
 // ---------------------------------------------------------------- world
-let field, terrain, vegetation, village, monsters, npcs, cave, peakSpot;
+let field, terrain, vegetation, village, monsters, npcs, peakSpot;
 let minimap = null, combat = null;
 const OBSTACLES = []; // building colliders, refilled on world build
 const water = buildWater();
@@ -77,14 +76,11 @@ function buildWorld(newSeed) {
   }
   if (monsters) monsters.dispose(scene);
   if (npcs) npcs.dispose(scene);
-  if (cave) cave.dispose(scene);
   field = makeHeightField(seed);
   terrain = buildTerrainMesh(field);
   buildTrails(field, terrain); // paints paths into the terrain colors, sets WORLD.trails
   vegetation = buildVegetation(field, seed);
   village = buildVillage(field, seed);
-  cave = buildCave(field, scene, seed);
-  village.landmarks.push(cave.landmark); // toast + map dot + teleport spot
   monsters = buildMonsters(field, seed, scene);
   npcs = createNPCs(field, scene, village.landmarks);
   scene.add(terrain, vegetation, village.group);
@@ -102,30 +98,15 @@ buildWorld(seed);
 // live reference so setSeed() swaps terrain under everyone at once.
 // groundAt = the rendered mesh surface (installed by buildTerrainMesh) — all
 // gameplay stands on that, never on the analytic field (floats at crests).
-// heightAt is player-aware: inside the cave footprint it returns whichever
-// surface (cave floor vs terrain above) is nearer to where the player IS, so
-// walking underground grounds on the cave and walking the mountain above
-// grounds on the terrain. groundAt stays the pure surface (build-time users).
-let _controller = null;
-const caveSurface = (x, z) => { // the cave floor, when it's the active surface here
-  if (!cave) return null;
-  const cf = cave.floorAt(x, z);
-  if (cf === null) return null;
-  const th = field.groundAt(x, z);
-  const py = _controller ? _controller.state.pos.y : 1e9;
-  return Math.abs(py - cf) < Math.abs(py - th) ? cf : null;
-};
 const fieldRef = {
-  heightAt: (x, z) => caveSurface(x, z) ?? field.groundAt(x, z),
+  heightAt: (x, z) => field.groundAt(x, z),
   groundAt: (x, z) => field.groundAt(x, z),
-  isDry: (x, z) => caveSurface(x, z) !== null, // cave floors below sea level are NOT water
 };
 
 // ---------------------------------------------------------------- player + camera
 const coal = buildCoal();
 scene.add(coal.root);
 const controller = createController(fieldRef, coal.root, OBSTACLES);
-_controller = controller;
 const camera = createCamera(renderer, fieldRef);
 controller.state.heading = 0; // face island centre (+Z)
 camera.snapBehind(controller.state);
@@ -412,8 +393,7 @@ function frame(now) {
       m.transparent = m.opacity < 0.995;
     }
   }
-  camera.setIndoor(insideAnyHouse || fieldRef.isDry(controller.state.pos.x, controller.state.pos.z));
-  cave.update(dt); // torch flicker
+  camera.setIndoor(insideAnyHouse);
 
   // walk marker: visible while a click target is active, gentle pulse
   const wt = controller.state.walkTarget;
@@ -524,7 +504,6 @@ const NAMED_SPOTS = {
   hill: lmSpot('Hope of the Axolotls Hill', 0, -6),
   kelp: lmSpot('The Kelp Grounds', 0, 14),
   hunt: lmSpot('The Hunting Point', -4, 4),
-  cave: lmSpot('Moxolotl Cave', 0, 0),
 };
 
 window.lotl = {
@@ -570,7 +549,6 @@ window.lotl = {
   closeShop() { shop.close(); },
   monsters: () => monsters,
   houses: () => village.fadeHouses.map((h) => ({ x: h.x, z: h.z, r: h.r })),
-  cave: () => ({ entrance: cave.entrance, chamber: cave.chamber }),
   fadeDebug: () => village.fadeHouses.map((h) => ({
     r: +h.r.toFixed(2),
     d: +Math.hypot(controller.state.pos.x - h.x, controller.state.pos.z - h.z).toFixed(2),

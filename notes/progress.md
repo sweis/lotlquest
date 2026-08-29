@@ -1,5 +1,19 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-28 — v0.11: cave shelved, Hope lives on her hill (Steve, with art)
+
+- **Moxolotl Cave unwired** (Steve: camera clipping under the play area, entry janky).
+  `world/cave.js` stays on disk and the WORLD.cave site survey still runs, but the pit
+  carve, build call, landmark, teleport spot, and the player-y-aware heightAt/isDry
+  plumbing are all removed. Revisit with a proper interior-camera design later.
+- **Hope** (from the "spirit of hope" art): golden axolotl NPC on Hope of the Axolotls
+  Hill beside the statue. New buildAxolotl options: `lids` (serene half-closed lids
+  over round eyes), `circlet: {band, gem}` (golden band + emissive blue crystal),
+  `rings` (gold tori on wrists, ankles and two on the tail). Round blue-gray irises.
+  Roams only 2.2m (stays by her statue); 4 lines of gentle foreshadowing.
+- Verified: no Moxolotl landmark/toast, clean console, Hope renders with circlet/gem/
+  rings, real click opens her dialog beside the statue.
+
 ## 2026-08-28 — v0.10: bigger island, flora kit, the Moxolotl Cave (Steve)
 
 - **Island 512→768m** (radius 190→290): terrain mesh scales with WORLD.size (384²

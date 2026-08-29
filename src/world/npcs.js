@@ -62,6 +62,28 @@ const ROSTER = [
   },
 ];
 
+ROSTER.push({
+  name: 'Hope',
+  build: {
+    name: 'hope', body: 0xd9c98e, belly: 0xbfa96a, stomach: 0xf1e9cf,
+    gill: 0xc9a55c, eyeStyle: 'round', iris: 0x7d9fc0, lids: true,
+    circlet: { band: 0xd4af37, gem: 0x4a7fd4 },
+    rings: 0xd4af37,
+  },
+  scale: 1.08,
+  roam: 2.2, // stays close to her statue
+  home: (V, lm) => {
+    const h = lm.find((l) => l.name === 'Hope of the Axolotls Hill');
+    return { x: h.x + 3.1, z: h.z - 2.6 };
+  },
+  lines: [
+    'You found me. Most travellers only ever see the statue.',
+    'I keep watch over the axolotls from this hill. Someone must hope loudly.',
+    'The circlet? A gift from the old ones. Its crystal remembers the sea.',
+    'Storms are coming, little Coal. Keep your friends close and your gills flared.',
+  ],
+});
+
 function turnToward(heading, want, maxStep) {
   let d = want - heading;
   d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -81,7 +103,7 @@ export function createNPCs(field, scene, landmarks) {
     ax.root.traverse((o) => { o.userData.npcIndex = i; });
     scene.add(ax.root);
     list.push({
-      name: def.name, lines: def.lines, lineIndex: 0,
+      name: def.name, lines: def.lines, lineIndex: 0, roam: def.roam ?? 4,
       ax, home, heading: Math.random() * Math.PI * 2,
       target: null, wait: 2 + Math.random() * 6,
       obstacle: { x: home.x, z: home.z, r: 0.55 },
@@ -114,7 +136,7 @@ export function createNPCs(field, scene, landmarks) {
       } else if ((n.wait -= dt) <= 0) {
         // pick a new stroll spot near home, on open walkable ground
         for (let tries = 0; tries < 6 && !n.target; tries++) {
-          const a = Math.random() * Math.PI * 2, r = 1.5 + Math.random() * 4;
+          const a = Math.random() * Math.PI * 2, r = 1.2 + Math.random() * n.roam;
           const tx = n.home.x + Math.sin(a) * r, tz = n.home.z + Math.cos(a) * r;
           if (ground(tx, tz) > WORLD.seaLevel + 0.5) n.target = { x: tx, z: tz };
         }
