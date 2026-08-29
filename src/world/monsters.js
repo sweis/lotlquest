@@ -31,7 +31,7 @@ function buildSlimeMesh() {
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
   blob.rotation.x = -Math.PI / 2; blob.position.y = 0.03;
   g.add(blob);
-  return { g, body };
+  return { g, body, blob };
 }
 
 export function buildMonsters(field, seed, scene) {
@@ -53,11 +53,11 @@ export function buildMonsters(field, seed, scene) {
     if (Math.hypot(x - S.x, z - S.z) < 30) continue;   // so is the spawn beach
     if (Math.hypot(x - WORLD.hill.x, z - WORLD.hill.z) < 14) continue;
     if (WORLD.cave && Math.hypot(x - WORLD.cave.x, z - WORLD.cave.z) < 16) continue;
-    const { g, body } = buildSlimeMesh();
+    const { g, body, blob } = buildSlimeMesh();
     g.position.set(x, h, z);
     scene.add(g);
     slimes.push({
-      mesh: g, body, home: { x, z }, hp: MAX_HP, alive: true,
+      mesh: g, body, blob, home: { x, z }, hp: MAX_HP, alive: true,
       vy: 0, grounded: true, hopCd: rng() * 1.4, hurtT: 0, contactCd: 0,
       respawnT: 0, wanderA: rng() * Math.PI * 2, squash: 1,
     });
@@ -123,6 +123,11 @@ export function buildMonsters(field, seed, scene) {
         }
       }
       s.body.scale.set(1.1 / Math.sqrt(s.squash), 0.85 * s.squash, 1.05 / Math.sqrt(s.squash));
+
+      // the contact-shadow blob stays on the ground while the slime hops
+      const air = Math.max(0, p.y - g0);
+      s.blob.position.y = 0.03 - air;
+      s.blob.scale.setScalar(Math.max(0.55, 1 - air * 0.3));
 
       // touching Coal hurts
       if (dPlayer < CONTACT_R && s.contactCd <= 0) {

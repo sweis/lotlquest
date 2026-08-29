@@ -278,7 +278,11 @@ export function buildAxolotl(opts = {}) {
   let t = 0, atkT = 0;
   const ATK_DUR = 0.3;
   function playAttack() { atkT = ATK_DUR; }
-  function animate(dt, speed, grounded) {
+  // airGap: metres between the feet and the ground below — keeps the blob
+  // contact shadow ON the ground while the body jumps
+  function animate(dt, speed, grounded, airGap = 0) {
+    blob.position.y = 0.03 - airGap;
+    blob.scale.setScalar(Math.max(0.55, 1 - airGap * 0.3));
     const walk = Math.min(speed / 3.2, 1.6);
     t += dt * (2.0 + speed * 3.0);
 

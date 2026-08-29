@@ -328,7 +328,9 @@ let drawCalls = 0, triangles = 0;
 function simTick(dt) {
   const paused = phase !== 'playing' || shop.isOpen();
   controller.update(paused ? 0 : dt); // tank controls — camera-independent
-  coal.animate(dt, paused ? 0 : controller.state.speed, controller.state.grounded);
+  const s = controller.state;
+  const airGap = Math.max(0, s.pos.y - fieldRef.heightAt(s.pos.x, s.pos.z));
+  coal.animate(dt, paused ? 0 : s.speed, s.grounded, airGap);
   if (!paused) {
     combat.update(dt);
     npcs.update(dt, controller.state);
