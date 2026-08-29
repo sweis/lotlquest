@@ -84,6 +84,32 @@ ROSTER.push({
   ],
 });
 
+ROSTER.push({
+  name: 'Storm',
+  build: {
+    name: 'storm', body: 0x232329, belly: 0x1c1c21, stomach: 0x232329, // solid black, black belly
+    gill: 0x6a4f9e, sclera: 0x17171b,                                  // black-on-black eyes
+    limbs: 0x6a4f9e, headband: 0x5a3f92, spines: 0x7a5cb5,
+    tailStyle: 'curl',
+  },
+  scale: 1.02,
+  roam: 3,
+  home: (V, lm, ground) => { // the shore of the kelp grounds
+    const k = lm.find((l) => l.name === 'The Kelp Grounds');
+    for (let t = 0; t <= 1; t += 0.02) {
+      const x = k.x + (V.x - k.x) * t, z = k.z + (V.z - k.z) * t;
+      if (ground(x, z) > 2.7) return { x, z };
+    }
+    return { x: V.x, z: V.z - 8 };
+  },
+  lines: [
+    '...You are dripping on my spot.',
+    'The kelp listens. That is more than most do.',
+    'Storms chase no one. Everyone simply stands where the lightning goes.',
+    'Hmph. Tell Hope the clouds say hello.',
+  ],
+});
+
 function turnToward(heading, want, maxStep) {
   let d = want - heading;
   d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -96,7 +122,7 @@ export function createNPCs(field, scene, landmarks) {
   const list = [];
 
   ROSTER.forEach((def, i) => {
-    const home = def.home(V, landmarks);
+    const home = def.home(V, landmarks, ground);
     const ax = buildAxolotl(def.build);
     ax.root.scale.setScalar(def.scale);
     ax.root.position.set(home.x, ground(home.x, home.z), home.z);

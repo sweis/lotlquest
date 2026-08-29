@@ -68,17 +68,16 @@ export function createCamera(renderer, field) {
       p.y + sp * dist + 0.6,
       p.z + Math.cos(yaw) * cp * dist,
     );
-    // keep above the local ground and the sea — but when the ground under the
-    // camera towers over Coal (cave roof, mountain wall), don't leap on top of
-    // it; hover just above his level instead
-    const gCam = field.heightAt(desired.x, desired.z);
-    const dry = field.isDry && field.isDry(desired.x, desired.z); // cave floors sit below sea level
-    let minY = Math.max(gCam + 0.5, dry ? -Infinity : WORLD.seaLevel + 0.4);
-    if (gCam > p.y + 3.5) minY = p.y + 0.35;
-    if (desired.y < minY) desired.y = minY;
+    // keep the target above the local ground and the sea
+    const gDes = Math.max(field.heightAt(desired.x, desired.z) + 0.5, WORLD.seaLevel + 0.4);
+    if (desired.y < gDes) desired.y = gDes;
 
     const k = 1 - Math.exp(-8 * dt);
     cam.position.lerp(desired, k);
+    // the lerp path can still dip into a slope mid-flight — hard-clamp the
+    // ACTUAL camera position against the terrain every frame
+    const gNow = Math.max(field.heightAt(cam.position.x, cam.position.z) + 0.45, WORLD.seaLevel + 0.35);
+    if (cam.position.y < gNow) cam.position.y = gNow;
     lookTarget.lerp(new THREE.Vector3(p.x, p.y + 0.75, p.z), 1 - Math.exp(-12 * dt));
     cam.lookAt(lookTarget);
   }

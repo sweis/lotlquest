@@ -19,16 +19,25 @@ export function buildAxolotl(opts = {}) {
     lids: false,           // serene half-closed lids over round eyes (Hope)
     circlet: null,         // {band, gem} → golden circlet with a crystal (Hope)
     rings: null,           // color → rings on arms, legs and tail (Hope)
+    sclera: 0xf2f4f6,      // eye whites — dark for black-on-black eyes (Storm)
+    limbs: null,           // color → arms/legs differ from the body (Storm)
+    headband: null,        // color → cloth band around the head (Storm)
+    spines: null,          // color → row of spikes down the back (Storm)
+    tailStyle: 'fin',      // 'fin' | 'curl' (Storm's long curled tail)
     ...opts,
   };
   const MAT = {
     body: new THREE.MeshStandardMaterial({ color: C.body, roughness: 0.55 }),
     belly: new THREE.MeshStandardMaterial({ color: C.belly, roughness: 0.7 }),
     stomach: new THREE.MeshStandardMaterial({ color: C.stomach, roughness: 0.6 }),
-    white: new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 0.3 }),
+    white: new THREE.MeshStandardMaterial({ color: C.sclera, roughness: 0.25 }),
     pupil: new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.2 }),
     gill: new THREE.MeshStandardMaterial({ color: C.gill, roughness: 0.55 }),
+    limb: null, // set below when limbs differ
   };
+  MAT.limb = C.limbs
+    ? new THREE.MeshStandardMaterial({ color: C.limbs, roughness: 0.55 })
+    : MAT.body;
 
   const root = new THREE.Group(); root.name = C.name;
   const model = new THREE.Group(); model.name = C.name + 'Model';
@@ -47,8 +56,8 @@ export function buildAxolotl(opts = {}) {
   const legs = [];
   for (const side of [-1, 1]) {
     const hip = new THREE.Group(); hip.position.set(0.10 * side, 0.26, 0); model.add(hip);
-    add(legGeo, MAT.body, hip);
-    const foot = add(new THREE.SphereGeometry(0.07, 10, 8), MAT.body, hip);
+    add(legGeo, MAT.limb, hip);
+    const foot = add(new THREE.SphereGeometry(0.07, 10, 8), MAT.limb, hip);
     foot.position.set(0, -0.21, 0.04); foot.scale.set(1.1, 0.5, 1.6);
     legs.push(hip);
   }
@@ -67,8 +76,8 @@ export function buildAxolotl(opts = {}) {
     const shoulder = new THREE.Group();
     shoulder.position.set(0.235 * side, 0.645, 0.02); model.add(shoulder);
     shoulder.rotation.z = side * 0.22; // relaxed, slightly out from the body
-    add(armGeo, MAT.body, shoulder);
-    const hand = add(new THREE.SphereGeometry(0.055, 10, 8), MAT.body, shoulder);
+    add(armGeo, MAT.limb, shoulder);
+    const hand = add(new THREE.SphereGeometry(0.055, 10, 8), MAT.limb, shoulder);
     hand.position.y = -0.17; hand.scale.set(1, 0.8, 1.1);
     shoulder.userData.baseZ = shoulder.rotation.z;
     arms.push(shoulder);
@@ -127,6 +136,14 @@ export function buildAxolotl(opts = {}) {
     gem.scale.set(0.8, 1.25, 0.6);
   }
 
+  if (C.headband) { // cloth band low across the brow
+    const bandMat = new THREE.MeshStandardMaterial({ color: C.headband, roughness: 0.85 });
+    const band = add(new THREE.TorusGeometry(0.30, 0.04, 8, 22), bandMat, head);
+    band.position.y = 0.12;
+    band.rotation.x = Math.PI / 2;
+    band.scale.set(1.2, 1.0, 0.97);
+  }
+
   // external gills — 3 long frilly stalks per side, flared up and out so they
   // read in silhouette from any angle (negative z-sign = outward)
   const gills = [];
@@ -143,17 +160,38 @@ export function buildAxolotl(opts = {}) {
     }
   }
 
-  // tail — fin angled down behind, sways as he walks
+  // tail — sways as he walks. 'fin': short fin angled down. 'curl': a long
+  // tail curling into a spiral behind (Storm).
   const tail = new THREE.Group(); tail.position.set(0, 0.32, -0.17); model.add(tail);
-  tail.rotation.x = 0.5; // droops toward the ground
-  const tailGeo = new THREE.ConeGeometry(0.12, 0.5, 10);
-  tailGeo.rotateX(-Math.PI / 2); tailGeo.translate(0, 0, -0.25);
-  const tailMesh = add(tailGeo, MAT.body, tail);
-  tailMesh.scale.set(0.30, 0.85, 1.0); // thin vertical fin
+  if (C.tailStyle === 'curl') {
+    const curlGeo = new THREE.TorusGeometry(0.24, 0.06, 8, 20, 4.6);
+    const curl = add(curlGeo, MAT.body, tail);
+    curl.position.set(0, 0.06, -0.22);
+    curl.rotation.set(0, Math.PI / 2, 1.1); // spiral stands sideways behind him
+    const tip = add(new THREE.ConeGeometry(0.05, 0.16, 6), MAT.body, tail);
+    tip.position.set(0, 0.3, -0.34);
+    tip.rotation.x = -0.9;
+  } else {
+    tail.rotation.x = 0.5; // droops toward the ground
+    const tailGeo = new THREE.ConeGeometry(0.12, 0.5, 10);
+    tailGeo.rotateX(-Math.PI / 2); tailGeo.translate(0, 0, -0.25);
+    const tailMesh = add(tailGeo, MAT.body, tail);
+    tailMesh.scale.set(0.30, 0.85, 1.0); // thin vertical fin
+  }
 
   // dorsal ridge down the back of the torso (axolotl fin)
   const ridge = add(new THREE.SphereGeometry(0.14, 10, 8), MAT.belly);
   ridge.position.set(0, 0.62, -0.185); ridge.scale.set(0.10, 0.85, 0.4);
+
+  if (C.spines) { // row of spikes down the back (see the art)
+    const spineMat = new THREE.MeshStandardMaterial({ color: C.spines, roughness: 0.6 });
+    const spots = [[0.76, -0.14, 0.11], [0.64, -0.19, 0.13], [0.5, -0.22, 0.12], [0.36, -0.22, 0.1]];
+    for (const [sy, sz, sr] of spots) {
+      const sp = add(new THREE.ConeGeometry(sr * 0.55, sr * 2.4, 5), spineMat);
+      sp.position.set(0, sy, sz);
+      sp.rotation.x = -0.85; // sweep back
+    }
+  }
 
   if (C.rings) { // golden bands on wrists, ankles and tail (see the art)
     const ringMat = new THREE.MeshStandardMaterial({ color: C.rings, roughness: 0.35, metalness: 0.7 });

@@ -1,5 +1,19 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-28 — v0.12: Storm at the kelp grounds; camera ground-clip fix (Steve, with art)
+
+- **Storm** (from the "storm" drawing): black axolotl with a SOLID black belly,
+  black-on-black eyes (dark sclera option), purple arms/legs (new `limbs` option),
+  purple back spines (`spines`), purple cloth `headband`, and a long CURLED tail
+  (`tailStyle: 'curl'` — torus-arc spiral). Home on the kelp-grounds shore (walks
+  the kelp→village line to the first dry ground); 4 gloomy-but-soft lines.
+- **Camera ground clipping fixed** (Steve): removed the cave-era "hover at player
+  level when the ground towers above" escape — with the cave gone it only let the
+  camera bury into steep hillsides. The desired position clamps to ground+0.5 AND
+  the actual lerped camera position hard-clamps against terrain every frame (the
+  lerp path could dip through slopes mid-flight). Verified: full uphill climb near
+  the peak, camera never below ground.
+
 ## 2026-08-28 — v0.11: cave shelved, Hope lives on her hill (Steve, with art)
 
 - **Moxolotl Cave unwired** (Steve: camera clipping under the play area, entry janky).
