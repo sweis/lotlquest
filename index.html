@@ -16,10 +16,21 @@
     align-items: center; justify-content: center; gap: 18px;
     background: linear-gradient(180deg, rgba(10,20,32,.35), rgba(10,20,32,.62));
   }
+  /* the wordmark: hand-lettered over a golden trident (see the drawing) */
+  #titleArt { position: relative; width: clamp(340px, 78vw, 900px); display: flex; align-items: center; justify-content: center; }
+  #tridentSvg { position: absolute; left: 0; top: 50%; transform: translateY(-46%); width: 100%; height: auto; pointer-events: none; }
   #title h1 {
-    margin: 0; font-size: clamp(44px, 9vw, 92px); font-weight: 300;
-    letter-spacing: .18em; color: #f4f8fb; text-transform: uppercase;
+    position: relative; margin: 0; display: flex; align-items: baseline;
+    font-family: 'Chalkboard SE', 'Comic Sans MS', 'Segoe Print', Georgia, serif;
+    font-weight: 700; font-size: clamp(40px, 8vw, 82px); color: #f7f9fb;
+    -webkit-text-stroke: 2px #232c38; letter-spacing: .01em;
+    text-shadow: 0 4px 10px rgba(8, 14, 22, .5);
   }
+  #title h1 span { display: inline-block; }
+  #title h1 span:first-child { font-size: 1.24em; }
+  #title h1 span:nth-child(2n) { transform: rotate(2.2deg) translateY(2px); }
+  #title h1 span:nth-child(3n) { transform: rotate(-2.4deg) translateY(-2px); }
+  #title h1 span:nth-child(5n) { transform: rotate(1.4deg) translateY(1px); }
   #title .tag { color: #cfe0ec; font-size: clamp(14px, 2.2vw, 19px); font-weight: 400; letter-spacing: .04em; }
   #playBtn {
     margin-top: 10px; padding: 14px 54px; font-size: 20px; letter-spacing: .06em;
@@ -161,7 +172,29 @@
 <div id="app"></div>
 
 <div id="title" class="ui">
-  <h1>LotlQuest</h1>
+  <div id="titleArt">
+    <svg id="tridentSvg" viewBox="0 0 1000 260" aria-hidden="true">
+      <g transform="rotate(-1.4 500 130)">
+        <g fill="none" stroke="#8a6b1f" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M 150 130 H 852"/>
+          <path d="M 290 130 C 248 127 216 116 182 90"/>
+          <path d="M 290 130 C 248 133 216 144 182 170"/>
+        </g>
+        <g fill="none" stroke="#e6b93c" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M 150 130 H 852"/>
+          <path d="M 290 130 C 248 127 216 116 182 90"/>
+          <path d="M 290 130 C 248 133 216 144 182 170"/>
+        </g>
+        <polygon points="58,130 140,97 125,130 140,163" fill="#e6b93c" stroke="#8a6b1f" stroke-width="7" stroke-linejoin="round"/>
+        <polygon points="98,84 180,55 164,86 180,118" fill="#e6b93c" stroke="#8a6b1f" stroke-width="7" stroke-linejoin="round"/>
+        <polygon points="98,176 180,144 164,175 180,207" fill="#e6b93c" stroke="#8a6b1f" stroke-width="7" stroke-linejoin="round"/>
+        <polygon points="906,84 962,130 906,176 850,130" fill="#e6b93c" stroke="#8a6b1f" stroke-width="8" stroke-linejoin="round"/>
+        <polygon points="906,102 936,130 906,158 876,130" fill="#3e9c44" stroke="#256b2c" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M 893 140 L 920 116" stroke="#8fdc8f" stroke-width="5" fill="none" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <h1><span>L</span><span>o</span><span>t</span><span>l</span><span>q</span><span>u</span><span>e</span><span>s</span><span>t</span></h1>
+  </div>
   <div class="tag">An axolotl adventure</div>
   <button id="playBtn">Play now</button>
   <div class="hint">W/S walk &nbsp;·&nbsp; A/D turn &nbsp;·&nbsp; drag to look &nbsp;·&nbsp; space jump &nbsp;·&nbsp; ? help</div>

@@ -11,7 +11,8 @@ const ROSTER = [
     name: 'Matcha',
     build: {
       name: 'matcha', body: 0x5d8f4e, belly: 0x476f3a, stomach: 0xaecb92,
-      gill: 0x3f7439, eyeStyle: 'line', brows: 0x2c4a26,
+      gill: 0x2c5527, eyeStyle: 'line', brows: 0x2c4a26, // darker green gills
+      trident: 0xd4af37, // his golden trident (see the new art)
     },
     scale: 1.05,
     home: (V) => ({ x: V.x + 3.4, z: V.z + 2.6 }), // by the well
@@ -89,7 +90,7 @@ ROSTER.push({
   build: {
     name: 'storm', body: 0x232329, belly: 0x1c1c21, stomach: 0x232329, // solid black, black belly
     gill: 0x6a4f9e, sclera: 0x17171b,                                  // black-on-black eyes
-    limbs: 0x6a4f9e, headband: 0x5a3f92, spines: 0x7a5cb5,
+    limbs: 0x6a4f9e, headband: 0xd4af37, spines: 0x7a5cb5, // gold headband now
     tailStyle: 'curl',
   },
   scale: 1.02,

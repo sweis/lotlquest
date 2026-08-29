@@ -9,10 +9,10 @@ import * as THREE from 'three';
 export function buildAxolotl(opts = {}) {
   const C = {
     name: 'coal',
-    body: 0x2b2b33,
-    belly: 0x44444f,       // ridge/fin accent
+    body: 0x93949c,        // Coal's updated look: light gray body…
+    belly: 0x7b7c84,       // ridge/fin accent
     stomach: 0xe9eaee,     // front patch (see art)
-    gill: 0x565f7d,
+    gill: 0x141418,        // …with black gills
     eyeStyle: 'line',      // 'line' (determined slits) | 'round' (with iris)
     iris: 0x3fa8b8,        // used by 'round'
     brows: null,           // color → draws heavy eyebrows (Matcha)
@@ -24,6 +24,8 @@ export function buildAxolotl(opts = {}) {
     headband: null,        // color → cloth band around the head (Storm)
     spines: null,          // color → row of spikes down the back (Storm)
     tailStyle: 'fin',      // 'fin' | 'curl' (Storm's long curled tail)
+    tailColor: null,       // color → tail differs from the body (Coal's black tail)
+    trident: null,         // color → holds a trident staff (Matcha)
     ...opts,
   };
   const MAT = {
@@ -37,6 +39,9 @@ export function buildAxolotl(opts = {}) {
   };
   MAT.limb = C.limbs
     ? new THREE.MeshStandardMaterial({ color: C.limbs, roughness: 0.55 })
+    : MAT.body;
+  MAT.tail = C.tailColor
+    ? new THREE.MeshStandardMaterial({ color: C.tailColor, roughness: 0.55 })
     : MAT.body;
 
   const root = new THREE.Group(); root.name = C.name;
@@ -176,14 +181,14 @@ export function buildAxolotl(opts = {}) {
       pts.push(new THREE.Vector3(0, cy - Math.sin(th) * r, cz + Math.cos(th) * r));
     }
     const curve = new THREE.CatmullRomCurve3(pts);
-    add(new THREE.TubeGeometry(curve, 40, 0.05, 7, false), MAT.body, tail);
-    const tip = add(new THREE.SphereGeometry(0.05, 8, 6), MAT.body, tail);
+    add(new THREE.TubeGeometry(curve, 40, 0.05, 7, false), MAT.tail, tail);
+    const tip = add(new THREE.SphereGeometry(0.05, 8, 6), MAT.tail, tail);
     tip.position.copy(pts[pts.length - 1]);
   } else {
     tail.rotation.x = 0.5; // droops toward the ground
     const tailGeo = new THREE.ConeGeometry(0.12, 0.5, 10);
     tailGeo.rotateX(-Math.PI / 2); tailGeo.translate(0, 0, -0.25);
-    const tailMesh = add(tailGeo, MAT.body, tail);
+    const tailMesh = add(tailGeo, MAT.tail, tail);
     tailMesh.scale.set(0.30, 0.85, 1.0); // thin vertical fin
   }
 
@@ -218,6 +223,27 @@ export function buildAxolotl(opts = {}) {
       r.position.z = tz;
       r.scale.set(0.6, 1.05, 1);
     }
+  }
+
+  if (C.trident) { // a golden trident staff held in the right hand (Matcha)
+    const tMat = new THREE.MeshStandardMaterial({ color: C.trident, roughness: 0.45, metalness: 0.35 });
+    const staff = new THREE.Group();
+    const parts = [
+      [new THREE.CylinderGeometry(0.022, 0.028, 1.16, 7), 0, 0.05, 0],
+      [new THREE.BoxGeometry(0.18, 0.034, 0.034), 0, 0.63, 0],
+      [new THREE.ConeGeometry(0.028, 0.2, 6), 0, 0.74, 0],
+      [new THREE.ConeGeometry(0.024, 0.15, 6), -0.078, 0.71, 0],
+      [new THREE.ConeGeometry(0.024, 0.15, 6), 0.078, 0.71, 0],
+    ];
+    for (const [geo, px, py, pz] of parts) {
+      const m = new THREE.Mesh(geo, tMat);
+      m.position.set(px, py, pz);
+      m.castShadow = true;
+      staff.add(m);
+    }
+    // gripped mid-shaft so the prongs rise well clear of the head
+    staff.position.set(0, 0.1, 0.09);
+    arms[0].add(staff);
   }
 
   // blob contact shadow — grounds him visually even where the sun shadow falls away
@@ -334,7 +360,8 @@ export function buildAxolotl(opts = {}) {
   };
 }
 
-// Coal, the black axolotl — the player character. Default palette.
+// Coal — the player character. Light gray body, black gills, black tail,
+// determined lined eyes (default palette + the black tail override).
 export function buildCoal() {
-  return buildAxolotl();
+  return buildAxolotl({ tailColor: 0x141418 });
 }
