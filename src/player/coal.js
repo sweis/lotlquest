@@ -172,7 +172,8 @@ export function buildAxolotl(opts = {}) {
       const t = i / 24;
       const th = -0.65 + t * 6.6;          // just over one turn
       const r = 0.23 * (1 - 0.72 * t);     // winds inward as it goes
-      pts.push(new THREE.Vector3(0, cy + Math.sin(th) * r, cz + Math.cos(th) * r));
+      // negative sin: winds DOWNWARD from the root so the tip curls under
+      pts.push(new THREE.Vector3(0, cy - Math.sin(th) * r, cz + Math.cos(th) * r));
     }
     const curve = new THREE.CatmullRomCurve3(pts);
     add(new THREE.TubeGeometry(curve, 40, 0.05, 7, false), MAT.body, tail);
