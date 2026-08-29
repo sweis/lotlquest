@@ -136,12 +136,12 @@ export function buildAxolotl(opts = {}) {
     gem.scale.set(0.8, 1.25, 0.6);
   }
 
-  if (C.headband) { // cloth band low across the brow
+  if (C.headband) { // cloth band low across the brow, snug to the skull
     const bandMat = new THREE.MeshStandardMaterial({ color: C.headband, roughness: 0.85 });
-    const band = add(new THREE.TorusGeometry(0.30, 0.04, 8, 22), bandMat, head);
-    band.position.y = 0.12;
+    const band = add(new THREE.TorusGeometry(0.265, 0.042, 8, 22), bandMat, head);
+    band.position.y = 0.09;
     band.rotation.x = Math.PI / 2;
-    band.scale.set(1.2, 1.0, 0.97);
+    band.scale.set(1.22, 1.0, 0.92);
   }
 
   // external gills — 3 long frilly stalks per side, flared up and out so they
@@ -164,26 +164,20 @@ export function buildAxolotl(opts = {}) {
   // tail curling into a spiral behind (Storm).
   const tail = new THREE.Group(); tail.position.set(0, 0.32, -0.17); model.add(tail);
   if (C.tailStyle === 'curl') {
-    // a coil hanging low behind, in the fore-aft plane, gap at the TOP where
-    // the root joins the body — gap-down reads as a letter C
-    const R = 0.185, TUBE = 0.055, ARC = 5.1;
-    const curlGeo = new THREE.TorusGeometry(R, TUBE, 8, 20, ARC);
-    curlGeo.rotateZ(-3.2);        // spin the gap up
-    curlGeo.rotateY(Math.PI / 2); // stand the coil fore-aft
-    const curl = add(curlGeo, MAT.body, tail);
-    curl.position.set(0, -0.02, -0.24);
-    // round off the open torus ends
-    for (const a of [0, ARC]) {
-      const p = new THREE.Vector3(Math.cos(a) * R, Math.sin(a) * R, 0)
-        .applyAxisAngle(new THREE.Vector3(0, 0, 1), -3.2)
-        .applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
-      const cap = add(new THREE.SphereGeometry(TUBE, 8, 6), MAT.body, tail);
-      cap.position.set(p.x, p.y - 0.02, p.z - 0.24);
+    // a true tapering spiral: a tube swept from the lower back, down and
+    // behind, winding inward — reads as a curled tail, never a closed ring
+    const cy = -0.04, cz = -0.27; // spiral centre in tail space
+    const pts = [new THREE.Vector3(0, 0.14, -0.02)]; // root at the lower back
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24;
+      const th = -0.65 + t * 6.6;          // just over one turn
+      const r = 0.23 * (1 - 0.72 * t);     // winds inward as it goes
+      pts.push(new THREE.Vector3(0, cy + Math.sin(th) * r, cz + Math.cos(th) * r));
     }
-    // root stub from the lower back down into the coil
-    const stub = add(new THREE.CylinderGeometry(0.05, 0.065, 0.18, 6), MAT.body, tail);
-    stub.position.set(0, 0.08, -0.15);
-    stub.rotation.x = 0.75;
+    const curve = new THREE.CatmullRomCurve3(pts);
+    add(new THREE.TubeGeometry(curve, 40, 0.05, 7, false), MAT.body, tail);
+    const tip = add(new THREE.SphereGeometry(0.05, 8, 6), MAT.body, tail);
+    tip.position.copy(pts[pts.length - 1]);
   } else {
     tail.rotation.x = 0.5; // droops toward the ground
     const tailGeo = new THREE.ConeGeometry(0.12, 0.5, 10);
