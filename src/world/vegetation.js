@@ -179,11 +179,20 @@ export function buildVegetation(field, seed) {
   shrubGeo.scale(1.2, 0.6, 1.2); shrubGeo.translate(0, 0.28, 0);
   const shrubMat = new THREE.MeshStandardMaterial({ color: 0x8a8a52, roughness: 0.95 });
 
+  // three flower kinds: dandelion puffs, tulip cups, little sunflowers
   const stemGeo = new THREE.CylinderGeometry(0.018, 0.024, 0.34, 5);
   stemGeo.translate(0, 0.17, 0);
+  const sunStemGeo = new THREE.CylinderGeometry(0.022, 0.03, 0.58, 5);
+  sunStemGeo.translate(0, 0.29, 0);
   const stemMat = new THREE.MeshStandardMaterial({ color: 0x4c7a41, roughness: 0.8 });
   const headGeo = new THREE.SphereGeometry(0.08, 8, 6);
-  const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+  const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, map: leaf });
+  const tulipGeo = new THREE.CylinderGeometry(0.088, 0.042, 0.17, 8);
+  const tulipMat = new THREE.MeshStandardMaterial({ roughness: 0.55, map: leaf });
+  const sunPetalGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.03, 10);
+  const sunPetalMat = new THREE.MeshStandardMaterial({ color: 0xe8c53c, roughness: 0.6, map: leaf });
+  const sunCoreGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.05, 8);
+  const sunCoreMat = new THREE.MeshStandardMaterial({ color: 0x6b4a26, roughness: 0.9 });
 
   // a tuft = three lean blades in one little geometry, instanced thousands of
   // times — the single biggest "not a flat lawn" win
@@ -257,11 +266,21 @@ export function buildVegetation(field, seed) {
     { sink: 0, color: (t, c) => c.setHSL(0.26 + t.tint * 0.07, 0.5, 0.28 + t.tint * 0.11) });
   bladesMesh.castShadow = false; // thousands of tufts — shadow pass skips them
 
-  fill(new THREE.InstancedMesh(stemGeo, stemMat, flowers.length), flowers, { sink: 0 });
-  fill(new THREE.InstancedMesh(headGeo, headMat, flowers.length), flowers.map((f) => ({ ...f, h: f.h + 0.34 * f.s })), {
+  const dands = flowers.filter((f) => f.tint < 0.4);
+  const tulips = flowers.filter((f) => f.tint >= 0.4 && f.tint < 0.75);
+  const suns = flowers.filter((f) => f.tint >= 0.75);
+  fill(new THREE.InstancedMesh(stemGeo, stemMat, dands.length + tulips.length), [...dands, ...tulips], { sink: 0 });
+  fill(new THREE.InstancedMesh(headGeo, headMat, dands.length), dands.map((f) => ({ ...f, h: f.h + 0.34 * f.s })), {
     sink: 0,
-    color: (t, c) => c.setHSL([0.93, 0.12, 0.0, 0.62][(t.tint * 4) | 0], 0.6, 0.72),
+    color: (t, c) => c.setHSL(0.13, 0.25, t.tint > 0.2 ? 0.9 : 0.78), // dandelion whites & pale golds
   });
+  fill(new THREE.InstancedMesh(tulipGeo, tulipMat, tulips.length), tulips.map((f) => ({ ...f, h: f.h + 0.4 * f.s })), {
+    sink: 0,
+    color: (t, c) => c.setHSL([0.98, 0.85, 0.75][((t.tint - 0.4) * 8.5) | 0] ?? 0.98, 0.65, 0.55), // reds, pinks, violets
+  });
+  fill(new THREE.InstancedMesh(sunStemGeo, stemMat, suns.length), suns, { sink: 0 });
+  fill(new THREE.InstancedMesh(sunPetalGeo, sunPetalMat, suns.length), suns.map((f) => ({ ...f, h: f.h + 0.58 * f.s })), { sink: 0 });
+  fill(new THREE.InstancedMesh(sunCoreGeo, sunCoreMat, suns.length), suns.map((f) => ({ ...f, h: f.h + 0.6 * f.s })), { sink: 0 });
 
   fill(new THREE.InstancedMesh(rockGeo, rockMat, rocks.length), rocks, { sink: 0.1 });
 

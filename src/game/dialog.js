@@ -16,7 +16,9 @@ export function createDialog() {
   el.addEventListener('pointerdown', (e) => {
     e.stopPropagation();
     if (!current) return;
-    current.lineIndex++;
+    // random next line, never the same one twice in a row
+    const n = current.lines.length;
+    current.lineIndex = (current.lineIndex + 1 + Math.floor(Math.random() * (n - 1))) % n;
     show();
   });
 

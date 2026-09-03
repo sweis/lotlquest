@@ -1,5 +1,27 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-29 — v0.15/0.16: perch, cave v3, texture pass, personalities (Steve burst)
+
+- Hunter's perch: climbable deck (ramp + rail gap, leg-only colliders), slimes only
+  hurt at your height, bow soft-aims (gravity-compensated) at the nearest slime ahead;
+  slope gate allows ≤0.42m steps. Fishing pier + Fish Stand + fountain statue landed
+  earlier the same day.
+- Moxolotl Cave v3: ABOVE-ground boulder-ring structure with torchlit doorway + dome
+  (v2's sunken version clipped cameras and had no findable entrance). Verified enter.
+- Procedural texture pass (all canvas, no photos): terrain grain, 5200 grass tufts,
+  bark, leaf blotch, stucco walls, granite stone/statues, mottled axolotl skin. Flowers
+  became dandelions/tulips/sunflowers. Draw calls ~1280 — NPC instancing is the known
+  next optimization.
+- Gill styles: spiky/round/frilly across the cast. Tridents held diagonally (no head
+  clip). House floors raised (z-fight flicker). Reset-save fixed (pagehide autosave
+  was resurrecting cleared data — saves disable after reset).
+- Dialog v2: 58 new lines of personalities/relationships (Spark adores Gold, Iris
+  paints Storm's spines, Pebble's rock is named Gerald, Moxolotl hums, Mad Bao lore);
+  random non-repeating pick per click. Quest hooks seeded for later.
+- NOT re-verified after fixes: deck ramp walk-up end-to-end (two earlier test scripts
+  had bad coordinates; system matches the verified house stairs + step allowance) and
+  mobile pass on all the new UI. Watch Steve's next playtest.
+
 ## 2026-08-29 — v0.14: village 2.0 — the big one (Steve's request burst)
 
 - **Fountain** replaces the well in the square (tiered stone, water discs, jets).
