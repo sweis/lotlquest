@@ -127,6 +127,13 @@ export function makeHeightField(seed) {
     x: cave.x, z: cave.z, dirX: cave.dirX, dirZ: cave.dirZ,
     r: 11, h: Math.max(rawHeightAt(cave.x, cave.z), WORLD.seaLevel + 1.5),
   };
+  { // the pocket is enclosed by design — carve a guaranteed walkable approach
+    // corridor from the cave door toward the village
+    const dvx = vSite.x - cave.x, dvz = vSite.z - cave.z;
+    const dl = Math.hypot(dvx, dvz) || 1;
+    const ex = cave.x + (dvx / dl) * 40, ez = cave.z + (dvz / dl) * 40;
+    WORLD.cave.approach = { ex, ez, eh: rawHeightAt(ex, ez) };
+  }
 
   // keep trees/rocks out of the built-up spots
   WORLD.landmarkExclusions = [
@@ -147,6 +154,17 @@ export function makeHeightField(seed) {
     // level a pad for the Moxolotl Cave's rock structure
     const dcv = Math.hypot(x - WORLD.cave.x, z - WORLD.cave.z);
     h = lerp(WORLD.cave.h, h, smoothstep(WORLD.cave.r * 0.55, WORLD.cave.r * 1.25, dcv));
+    // …and a ramped corridor from its door toward the village, so the pocket
+    // is always reachable on foot (grade ≈ Δh/40, well under the climb gate)
+    const A = WORLD.cave.approach;
+    if (A) {
+      const vx = A.ex - WORLD.cave.x, vz = A.ez - WORLD.cave.z;
+      const t = ((x - WORLD.cave.x) * vx + (z - WORLD.cave.z) * vz) / (vx * vx + vz * vz);
+      if (t > 0 && t < 1) {
+        const lat = Math.hypot(x - (WORLD.cave.x + vx * t), z - (WORLD.cave.z + vz * t));
+        h = lerp(lerp(WORLD.cave.h, A.eh, t), h, smoothstep(3.5, 8.5, lat));
+      }
+    }
     return h;
   }
 

@@ -115,6 +115,7 @@ export function buildTrails(field, terrainMesh) {
     [V, WORLD.hill],
     [V, WORLD.hunt],
     [V, shore],
+    [V, WORLD.cave], // the approach corridor makes this routable
   ];
   const paths = [];
   for (const [a, b] of pairs) {
