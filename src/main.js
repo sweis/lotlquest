@@ -90,7 +90,7 @@ function buildWorld(newSeed) {
   village.landmarks.push(cave.landmark); // toast + map dot + teleport spot
   monsters = buildMonsters(field, seed, scene);
   pickups = buildPickups(field, seed, scene);
-  npcs = createNPCs(field, scene, village.landmarks, village.stalls);
+  npcs = createNPCs(field, scene, village.landmarks, village.stalls, OBSTACLES);
   scene.add(terrain, vegetation, village.group);
   OBSTACLES.length = 0;
   OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles, ...npcs.obstacles);
@@ -495,6 +495,12 @@ function frame(now) {
       m.opacity += (target - m.opacity) * (1 - Math.exp(-10 * dt));
       m.transparent = m.opacity < 0.995;
     }
+  }
+  const homeArrow = village.group.userData.homeArrow;
+  if (homeArrow) {
+    homeArrow.userData.baseY ??= homeArrow.position.y;
+    homeArrow.rotation.y += dt * 1.3;
+    homeArrow.position.y = homeArrow.userData.baseY + Math.sin(now * 0.0028) * 0.3;
   }
   const underground = fieldRef.isDry(controller.state.pos.x, controller.state.pos.z);
   camera.setIndoor(insideAnyHouse || underground);

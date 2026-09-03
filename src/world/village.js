@@ -41,8 +41,8 @@ function house(rng, own = false) {
   // floor, a straight stair ramp along the right wall. Coal's own house also
   // gets a weapon display rack and a potion-maker cauldron.
   const g = new THREE.Group();
-  const w = (own ? 5.4 : 4.6) + rng() * 0.8, d = (own ? 4.8 : 4.2) + rng() * 0.6;
-  const h = 4.7; // two floors
+  const w = (own ? 6.4 : 5.6) + rng() * 0.8, d = (own ? 5.6 : 5.0) + rng() * 0.6;
+  const h = 4.9; // two floors
   const wallMat = MAT.plaster[(rng() * MAT.plaster.length) | 0].clone();
   const roofMat = MAT.roof[(rng() * MAT.roof.length) | 0].clone();
   const T = 0.15, doorW = 1.1, doorH = 1.75;
@@ -347,11 +347,12 @@ export function buildVillage(field, seed) {
   group.add(plaza);
   place(fountain(), V.x, V.z);
 
-  // houses ring the square
+  // houses ring the square — kept clear of the stall arc (30–90°) and the
+  // armory (272°) so nothing stands in front of anything
   let houses = 0;
-  for (const deg of [20, 75, 140, 200, 250, 310]) {
-    const a = (deg / 180) * Math.PI + (rng() - 0.5) * 0.2;
-    const r = 15 + rng() * 4;
+  for (const deg of [115, 150, 192, 232, 305, 5]) {
+    const a = (deg / 180) * Math.PI + (rng() - 0.5) * 0.12;
+    const r = 17.5 + rng() * 3.5;
     place(house(rng), V.x + Math.sin(a) * r, V.z + Math.cos(a) * r);
     houses++;
   }
@@ -378,6 +379,15 @@ export function buildVillage(field, seed) {
       z: z - own.brewLocal.x * sn + own.brewLocal.z * cs,
     };
     houses++;
+    // a bobbing golden arrow floats over home so it's easy to find
+    const arrow = new THREE.Group();
+    const shaft = mesh(new THREE.BoxGeometry(0.16, 0.7, 0.16), MAT.shieldTrim, arrow, 0, 0.55, 0);
+    const tip = mesh(new THREE.ConeGeometry(0.3, 0.5, 6), MAT.shieldTrim, arrow, 0, 0, 0);
+    tip.rotation.x = Math.PI; // points down at the house
+    shaft.castShadow = tip.castShadow = false;
+    arrow.position.set(x, own.g.position.y + 7.8, z);
+    group.add(arrow);
+    group.userData.homeArrow = arrow;
   }
 
   // market stalls on the north-east edge of the square: weapons, food, potions

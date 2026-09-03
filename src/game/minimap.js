@@ -128,6 +128,25 @@ export function createMinimap(field) {
       if (d < ENEMY_VIS) dot(s.mesh.position.x, s.mesh.position.z, '#e5484d');
     }
 
+    // gold triangle pinned to the map edge pointing home when it's off-view
+    const home = landmarks.find((l) => l.name === "Coal's House");
+    if (home) {
+      const [hx, hy] = toMap(home.x, home.z);
+      const dx = hx - SIZE / 2, dy = hy - SIZE / 2;
+      const dist = Math.hypot(dx, dy), maxR = SIZE / 2 - 11;
+      if (dist > maxR) {
+        ctx.save();
+        ctx.translate(SIZE / 2 + (dx / dist) * maxR, SIZE / 2 + (dy / dist) * maxR);
+        ctx.rotate(Math.atan2(dy, dx) + Math.PI / 2);
+        ctx.fillStyle = '#f4c95d';
+        ctx.strokeStyle = 'rgba(20,26,34,.8)'; ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(0, -9); ctx.lineTo(6.5, 4); ctx.lineTo(-6.5, 4);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
     // player arrow — points the way Coal is facing (north up)
     const [ax, ay] = toMap(playerState.pos.x, playerState.pos.z);
     ctx.translate(ax, ay);

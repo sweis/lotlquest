@@ -185,13 +185,13 @@ ROSTER.push(
   {
     name: 'Memo',
     build: { name: 'memo', body: 0x7fb8ad, belly: 0x5f968c, stomach: 0xd9efe9, gill: 0x4a7f76, eyeStyle: 'round', iris: 0x35635c },
-    scale: 0.94, roam: 3, home: villageHome(55, 14),
+    scale: 0.94, roam: 3, home: villageHome(95, 12),
     lines: ['I remember everything. You blinked twice since we met.', 'Note to self: kelp for dinner. Again.', 'Hope asked me to remember something important. ...It will come back to me.'],
   },
   {
     name: 'Pebble',
     build: { name: 'pebble', body: 0x8a93a3, belly: 0x6d7684, stomach: 0xd3d9e0, gill: 0x5a6473, eyeStyle: 'line' },
-    scale: 0.92, roam: 2.5, home: villageHome(200, 16),
+    scale: 0.92, roam: 2.5, home: villageHome(210, 12.5),
     lines: ['Rocks are just very patient friends.', 'I have named every stone on this beach. That one is Gerald.', 'Slow and steady. Mostly slow.'],
   },
   {
@@ -209,7 +209,7 @@ ROSTER.push(
   {
     name: 'Wave',
     build: { name: 'wave', body: 0x3f9fa8, belly: 0x2f7f86, stomach: 0xc9ecef, gill: 0x2a6f76, eyeStyle: 'round', iris: 0xe8f4f6 },
-    scale: 0.98, roam: 4, home: villageHome(130, 17),
+    scale: 0.98, roam: 4, home: villageHome(133, 12),
     lines: ['The tide goes out. The tide comes back. I respect that.', 'Splash is faster, but I am smoother.', 'Some day I will surf the big storm swell. Do not tell Storm.'],
   },
   {
@@ -226,7 +226,7 @@ function turnToward(heading, want, maxStep) {
   return heading + Math.max(-maxStep, Math.min(maxStep, d));
 }
 
-export function createNPCs(field, scene, landmarks, stalls = []) {
+export function createNPCs(field, scene, landmarks, stalls = [], obstacles = []) {
   const ground = field.groundAt;
   const V = WORLD.village;
   const list = [];
@@ -266,8 +266,18 @@ export function createNPCs(field, scene, landmarks, stalls = []) {
           const want = Math.atan2(n.target.x - p.x, n.target.z - p.z);
           n.heading = turnToward(n.heading, want, 2.5 * dt);
           speed = 1.1;
-          p.x += Math.sin(n.heading) * speed * dt;
-          p.z += Math.cos(n.heading) * speed * dt;
+          const nx = p.x + Math.sin(n.heading) * speed * dt;
+          const nz = p.z + Math.cos(n.heading) * speed * dt;
+          // never step through a wall/rock/building — give up on that stroll
+          let hit = false;
+          for (let oi = 0; oi < obstacles.length; oi++) {
+            const o = obstacles[oi];
+            if (o === n.obstacle) continue;
+            const dx = nx - o.x, dz = nz - o.z;
+            if (dx * dx + dz * dz < (o.r + 0.05) * (o.r + 0.05)) { hit = true; break; }
+          }
+          if (hit) { n.target = null; n.wait = 2 + Math.random() * 5; speed = 0; }
+          else { p.x = nx; p.z = nz; }
         }
       } else if ((n.wait -= dt) <= 0) {
         // pick a new stroll spot near home, on open walkable ground
