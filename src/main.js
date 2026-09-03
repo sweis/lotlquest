@@ -82,7 +82,7 @@ function buildWorld(newSeed) {
   vegetation = buildVegetation(field, seed);
   village = buildVillage(field, seed);
   monsters = buildMonsters(field, seed, scene);
-  npcs = createNPCs(field, scene, village.landmarks);
+  npcs = createNPCs(field, scene, village.landmarks, village.stalls);
   scene.add(terrain, vegetation, village.group);
   OBSTACLES.length = 0;
   OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles, ...npcs.obstacles);
@@ -129,8 +129,13 @@ function updateHUD() {
   hpEl.innerHTML = html;
   document.getElementById('tokenCount').textContent = combat.state.tokens;
   const wnames = { melee: ['Bite', 'Wooden Sword', 'Iron Sword'][combat.state.melee], bow: 'Kelp Bow' };
+  const buffNames = { speed: 'Zoom!', guard: 'Stoneskin', luck: 'Lucky' };
+  const active = Object.keys(combat.state.buffs)
+    .filter((k) => combat.state.buffs[k] > 0)
+    .map((k) => buffNames[k]);
   document.getElementById('weaponRow').textContent =
-    wnames[combat.state.weapon] + (combat.state.bow ? '  ·  1/2 to switch' : '') + '  ·  F to attack';
+    wnames[combat.state.weapon] + (combat.state.bow ? '  ·  1/2 to switch' : '') + '  ·  F to attack' +
+    (active.length ? '  ·  ' + active.join(' · ') : '');
 }
 combat = createCombat({ scene, coal, controller, field: fieldRef, onChange: updateHUD });
 combat.setMonsters(monsters);
@@ -143,8 +148,10 @@ const shop = createShop(combat, (closedMode) => { shopBlockMode = closedMode; })
 document.getElementById('shopClose').addEventListener('click', () => shop.close());
 let shopBlockMode = null;
 const SHOP_SPOTS = [
-  { landmark: 'The Armory', mode: 'armory', r: 5.2 },
-  { landmark: 'Food Market', mode: 'market', r: 4.8 },
+  { mode: 'armory', r: 5.2, at: () => village.landmarks.find((l) => l.name === 'The Armory') },
+  { mode: 'weapons', r: 2.7, at: () => village.stalls.find((s) => s.mode === 'weapons') },
+  { mode: 'market', r: 2.7, at: () => village.stalls.find((s) => s.mode === 'market') },
+  { mode: 'potions', r: 2.7, at: () => village.stalls.find((s) => s.mode === 'potions') },
 ];
 
 function onPlayerDeath() {
@@ -332,6 +339,7 @@ let drawCalls = 0, triangles = 0;
 
 function simTick(dt) {
   const paused = phase !== 'playing' || shop.isOpen();
+  controller.state.speedMul = combat.state.buffs.speed > 0 ? 1.45 : 1; // Zoom Juice
   controller.update(paused ? 0 : dt); // tank controls — camera-independent
   const s = controller.state;
   const airGap = Math.max(0, s.pos.y - fieldRef.heightAt(s.pos.x, s.pos.z));
@@ -377,7 +385,8 @@ function frame(now) {
   // shops open when Coal walks up to their door/stalls
   if (phase === 'playing') {
     for (const spot of SHOP_SPOTS) {
-      const lm = village.landmarks.find((l) => l.name === spot.landmark);
+      const lm = spot.at();
+      if (!lm) continue;
       const d = Math.hypot(controller.state.pos.x - lm.x, controller.state.pos.z - lm.z);
       if (shopBlockMode === spot.mode && d > spot.r + 2) shopBlockMode = null;
       if (d < spot.r && !shop.isOpen() && shopBlockMode !== spot.mode) {
@@ -466,6 +475,7 @@ function getState() {
       melee: combat.state.melee, bow: combat.state.bow, shell: combat.state.shell,
       weapon: combat.state.weapon, kills: combat.state.kills,
       monstersAlive: monsters.aliveCount(), shopOpen: shop.isOpen(),
+      buffs: { ...combat.state.buffs },
     },
     entities: {
       ...(vegetation.userData.counts), ...(village.group.userData.counts),
@@ -552,6 +562,7 @@ window.lotl = {
   hurt(n) { combat.damagePlayer(n | 0, controller.state.pos.x + 1, controller.state.pos.z); },
   buy(id) { const r = combat.buy(id); shop.render(); return r; },
   buyFood(id) { const r = combat.buyFood(id); shop.render(); return r; },
+  buyPotion(id) { const r = combat.buyPotion(id); shop.render(); return r; },
   openShop(mode) { shop.open(mode); },
   closeShop() { shop.close(); },
   monsters: () => monsters,

@@ -98,7 +98,7 @@ function armory() {
   return { g, r: 3.4 };
 }
 
-function stall(i) {
+function stall(i, role) {
   const g = new THREE.Group();
   for (const [px, pz] of [[-1, -0.55], [1, -0.55], [-1, 0.55], [1, 0.55]]) {
     mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.0, 6), MAT.wood, g, px, 1.0, pz);
@@ -106,8 +106,25 @@ function stall(i) {
   mesh(new THREE.BoxGeometry(2.15, 0.75, 1.0), MAT.woodDark, g, 0, 0.62, 0);
   const awn = mesh(new THREE.BoxGeometry(2.5, 0.07, 1.5), MAT.awning[i % MAT.awning.length], g, 0, 2.06, 0.1);
   awn.rotation.x = -0.22;
-  for (let p = 0; p < 3; p++) {
-    mesh(new THREE.SphereGeometry(0.17, 10, 8), MAT.produce[(p + i) % MAT.produce.length], g, -0.6 + p * 0.6, 1.14, 0.1);
+
+  if (role === 'weapons') { // a display sword and a small shield on the counter
+    const blade = mesh(new THREE.BoxGeometry(0.06, 0.5, 0.05), MAT.metal, g, -0.45, 1.06, 0.1);
+    blade.rotation.z = 1.25;
+    mesh(new THREE.BoxGeometry(0.16, 0.05, 0.08), MAT.woodDark, g, -0.24, 1.02, 0.1);
+    const shield = mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.06, 14), MAT.shield, g, 0.55, 1.12, 0.1);
+    shield.rotation.x = Math.PI / 2.4;
+  } else if (role === 'potions') { // bottles of brew
+    const glass = [0xd45f92, 0x6a4f9e, 0x4e8fa0];
+    for (let b = 0; b < 3; b++) {
+      const bm = new THREE.MeshStandardMaterial({ color: glass[b], roughness: 0.25 });
+      mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.24, 8), bm, g, -0.5 + b * 0.5, 1.12, 0.1);
+      mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.1, 6), bm, g, -0.5 + b * 0.5, 1.29, 0.1);
+      mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.05, 6), MAT.wood, g, -0.5 + b * 0.5, 1.36, 0.1);
+    }
+  } else { // food: produce
+    for (let p = 0; p < 3; p++) {
+      mesh(new THREE.SphereGeometry(0.17, 10, 8), MAT.produce[(p + i) % MAT.produce.length], g, -0.6 + p * 0.6, 1.14, 0.1);
+    }
   }
   mesh(new THREE.BoxGeometry(0.55, 0.5, 0.55), MAT.wood, g, 1.35, 0.25, 0.75);
   return { g, r: 1.7 };
@@ -205,12 +222,15 @@ export function buildVillage(field, seed) {
     place(armory(), V.x + Math.sin(a) * 21.5, V.z + Math.cos(a) * 21.5, true, 0.14);
   }
 
-  // food market: stall arc on the north-east edge of the square
+  // market stalls on the north-east edge of the square: weapons, food, potions
   let stallC = { x: 0, z: 0 };
+  const stalls = [];
+  const STALL_ROLES = ['weapons', 'market', 'potions'];
   for (let i = 0; i < 3; i++) {
     const a = ((38 + i * 22) / 180) * Math.PI;
     const x = V.x + Math.sin(a) * 12.5, z = V.z + Math.cos(a) * 12.5;
-    place(stall(i), x, z);
+    place(stall(i, STALL_ROLES[i] === 'market' ? 'food' : STALL_ROLES[i]), x, z);
+    stalls.push({ x, z, mode: STALL_ROLES[i] });
     stallC.x += x / 3; stallC.z += z / 3;
   }
 
@@ -331,5 +351,5 @@ export function buildVillage(field, seed) {
   ];
 
   group.userData.counts = { houses, stalls: 3, kelp: kelpSpots.length, landmarks: landmarks.length };
-  return { group, obstacles, landmarks, fadeHouses };
+  return { group, obstacles, landmarks, fadeHouses, stalls };
 }

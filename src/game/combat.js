@@ -12,12 +12,20 @@ export const FOOD = [
   { id: 'food3', name: 'Honey Cake', desc: 'The baker’s pride. Fully restores your hearts.', price: 8, heal: 99 },
 ];
 
-export const CATALOG = [
+export const WEAPONS = [
   { id: 'sword1', kind: 'melee', tier: 1, name: 'Wooden Sword', desc: 'A sturdy branch, axolotl-sharpened. Damage 2.', price: 5 },
-  { id: 'sword2', kind: 'melee', tier: 2, name: 'Iron Sword', desc: 'Forged in the armory. Damage 3.', price: 25 },
+  { id: 'sword2', kind: 'melee', tier: 2, name: 'Iron Sword', desc: 'Vendor-forged. Damage 3.', price: 25 },
   { id: 'bow1', kind: 'bow', tier: 1, name: 'Kelp Bow', desc: 'Shoots arrows (press F, weapon 2). Damage 2 at range.', price: 15 },
+];
+export const ARMOR = [
   { id: 'shell1', kind: 'shell', tier: 1, name: 'Leaf Shell', desc: 'A springy back-shell. +1 heart.', price: 8 },
   { id: 'shell2', kind: 'shell', tier: 2, name: 'Iron Shell', desc: 'Serious protection. +2 hearts.', price: 30 },
+];
+export const CATALOG = [...WEAPONS, ...ARMOR];
+export const POTIONS = [
+  { id: 'pot1', name: 'Zoom Juice', desc: 'Run like a river for 45 seconds.', price: 5, buff: 'speed', dur: 45 },
+  { id: 'pot2', name: 'Stoneskin Tonic', desc: 'Slimes cannot hurt you for 45 seconds.', price: 10, buff: 'guard', dur: 45 },
+  { id: 'pot3', name: 'Lucky Fizz', desc: 'Slimes drop extra tokens for 60 seconds.', price: 6, buff: 'luck', dur: 60 },
 ];
 
 const TOKEN_GEO = new THREE.CylinderGeometry(0.16, 0.16, 0.05, 12);
@@ -32,6 +40,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     weapon: 'melee',                 // active: 'melee' | 'bow'
     attackCd: 0, invulnT: 0,
     kills: 0,
+    buffs: { speed: 0, guard: 0, luck: 0 }, // seconds remaining (potions)
   };
   const maxHp = () => state.baseMaxHp + state.shell * 2;
 
@@ -116,12 +125,14 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
 
   function onKill(s) {
     state.kills++;
-    dropTokens(s.mesh.position.x, s.mesh.position.z, 1 + ((Math.random() * 3) | 0));
+    const bonus = state.buffs.luck > 0 ? 2 : 0; // Lucky Fizz
+    dropTokens(s.mesh.position.x, s.mesh.position.z, 1 + ((Math.random() * 3) | 0) + bonus);
     onChange();
   }
 
   function damagePlayer(amount, fromX, fromZ) {
     if (state.invulnT > 0 || state.hp <= 0) return;
+    if (state.buffs.guard > 0) { state.invulnT = 0.5; return; } // Stoneskin Tonic
     state.hp -= amount * (state.shell >= 2 ? 1 : 1); // shells add hearts instead of resist
     state.invulnT = 1.1;
     // shove Coal away from the hit
@@ -138,6 +149,12 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
   function update(dt) {
     state.attackCd = Math.max(0, state.attackCd - dt);
     state.invulnT = Math.max(0, state.invulnT - dt);
+    for (const k of Object.keys(state.buffs)) {
+      if (state.buffs[k] > 0) {
+        state.buffs[k] = Math.max(0, state.buffs[k] - dt);
+        if (state.buffs[k] === 0) onChange(); // buff wore off — refresh the HUD
+      }
+    }
     coal.model.visible = state.invulnT <= 0 || Math.sin(state.invulnT * 40) > -0.2; // hurt blink
 
     for (let i = drops.length - 1; i >= 0; i--) {
@@ -194,6 +211,17 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     return 'ok';
   }
 
+  function buyPotion(id) {
+    const item = POTIONS.find((p) => p.id === id);
+    if (!item) return 'unknown item';
+    if (state.buffs[item.buff] > 0) return 'already active';
+    if (state.tokens < item.price) return 'not enough tokens';
+    state.tokens -= item.price;
+    state.buffs[item.buff] = item.dur;
+    save(); onChange();
+    return 'ok';
+  }
+
   function buyFood(id) {
     const item = FOOD.find((f) => f.id === id);
     if (!item) return 'unknown item';
@@ -221,5 +249,5 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     try { localStorage.removeItem(SAVE_KEY); } catch { /* nothing to clear */ }
   }
 
-  return { state, maxHp, update, tryAttack, damagePlayer, buy, buyFood, setWeapon, setMonsters, respawn, dropTokens, save, resetSave };
+  return { state, maxHp, update, tryAttack, damagePlayer, buy, buyFood, buyPotion, setWeapon, setMonsters, respawn, dropTokens, save, resetSave };
 }

@@ -24,17 +24,57 @@ const ROSTER = [
     ],
   },
   {
+    name: 'Bubbles',
+    build: {
+      name: 'bubbles', body: 0x39a8a0, belly: 0x2b827c, stomach: 0xc4ece6,
+      gill: 0x1f6f6a, eyeStyle: 'round', iris: 0x2a6e78,
+    },
+    scale: 0.98,
+    roam: 0.9, // tends the weapon stall
+    home: (V, lm, ground, stalls) => {
+      const s = stalls.find((st) => st.mode === 'weapons') ?? stalls[0];
+      const d = Math.hypot(s.x - V.x, s.z - V.z) || 1;
+      return { x: s.x + ((s.x - V.x) / d) * 1.5, z: s.z + ((s.z - V.z) / d) * 1.5 };
+    },
+    lines: [
+      'Sharp things! Pointy things! Welcome!',
+      'A wooden sword floats. An iron sword does not. Choose wisely.',
+      'I test every blade on slime jelly. Quality guaranteed!',
+      'Storm buys arrows and never says thank you. Typical.',
+    ],
+  },
+  {
+    name: 'Coral',
+    build: {
+      name: 'coral', body: 0xe58bb0, belly: 0xc76e96, stomach: 0xf7d7e4,
+      gill: 0xd45f92, eyeStyle: 'round', iris: 0x8a5fb8,
+    },
+    scale: 0.96,
+    roam: 0.9, // tends the potion stall
+    home: (V, lm, ground, stalls) => {
+      const s = stalls.find((st) => st.mode === 'potions') ?? stalls[stalls.length - 1];
+      const d = Math.hypot(s.x - V.x, s.z - V.z) || 1;
+      return { x: s.x + ((s.x - V.x) / d) * 1.5, z: s.z + ((s.z - V.z) / d) * 1.5 };
+    },
+    lines: [
+      'Fresh-brewed fizz! Careful — it tickles.',
+      'Zoom Juice is just kelp, bubbles and belief.',
+      'One sip of Lucky Fizz and the tokens practically chase you.',
+      'Hope taught me the recipes. The crystal remembers them all.',
+    ],
+  },
+  {
     name: 'Spark',
     build: {
       name: 'spark', body: 0xe3d15c, belly: 0xcbb648, stomach: 0xf4eebb,
       gill: 0xc98a52, eyeStyle: 'round', iris: 0x3fa8b8,
     },
     scale: 0.95,
-    home: (V, lm) => {
-      const m = lm.find((l) => l.name === 'Food Market');
-      const d = Math.hypot(V.x - m.x, V.z - m.z) || 1;
-      // market-side of the square, outside the shop's open radius
-      return { x: m.x + ((V.x - m.x) / d) * 6.5, z: m.z + ((V.z - m.z) / d) * 6.5 };
+    roam: 0.9, // tends the food stall
+    home: (V, lm, ground, stalls) => {
+      const s = stalls.find((st) => st.mode === 'market') ?? stalls[1];
+      const d = Math.hypot(s.x - V.x, s.z - V.z) || 1;
+      return { x: s.x + ((s.x - V.x) / d) * 1.5, z: s.z + ((s.z - V.z) / d) * 1.5 };
     },
     lines: [
       'Zap! Did I scare you? Hehe.',
@@ -117,13 +157,13 @@ function turnToward(heading, want, maxStep) {
   return heading + Math.max(-maxStep, Math.min(maxStep, d));
 }
 
-export function createNPCs(field, scene, landmarks) {
+export function createNPCs(field, scene, landmarks, stalls = []) {
   const ground = field.groundAt;
   const V = WORLD.village;
   const list = [];
 
   ROSTER.forEach((def, i) => {
-    const home = def.home(V, landmarks, ground);
+    const home = def.home(V, landmarks, ground, stalls);
     const ax = buildAxolotl(def.build);
     ax.root.scale.setScalar(def.scale);
     ax.root.position.set(home.x, ground(home.x, home.z), home.z);

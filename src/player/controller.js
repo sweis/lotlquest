@@ -74,7 +74,7 @@ export function createController(initialField, playerRoot, obstacles = []) {
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
       const maxTurn = TURN_RATE * 1.8 * dt;
       state.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
-      const spd = (mag > 0.85 ? RUN : WALK) * (state.swimming ? 0.55 : 1) * Math.min(mag * 1.25, 1);
+      const spd = (mag > 0.85 ? RUN : WALK) * (state.swimming ? 0.55 : 1) * Math.min(mag * 1.25, 1) * (state.speedMul ?? 1);
       target.set(Math.sin(ang) * spd, 0, Math.cos(ang) * spd);
       stickHandled = true;
     } else if (state.walkTarget) {
@@ -97,7 +97,7 @@ export function createController(initialField, playerRoot, obstacles = []) {
       state.heading += turn * TURN_RATE * dt;
     }
     if (!stickHandled && (drive !== 0 || strafe !== 0)) {
-      const spd = (keys.has('run') ? RUN : WALK) * (state.swimming ? 0.55 : 1);
+      const spd = (keys.has('run') ? RUN : WALK) * (state.swimming ? 0.55 : 1) * (state.speedMul ?? 1);
       const fx = Math.sin(state.heading), fz = Math.cos(state.heading);   // forward
       const rx = -fz, rz = fx;                                            // screen-right
       target.set(fx * drive + rx * strafe * STRAFE_FACTOR, 0, fz * drive + rz * strafe * STRAFE_FACTOR);
