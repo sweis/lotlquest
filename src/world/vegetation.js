@@ -265,6 +265,7 @@ export function buildVegetation(field, seed) {
   const bladesMesh = fill(new THREE.InstancedMesh(bladeGeo, bladeMat, blades.length), blades,
     { sink: 0, color: (t, c) => c.setHSL(0.26 + t.tint * 0.07, 0.5, 0.28 + t.tint * 0.11) });
   bladesMesh.castShadow = false; // thousands of tufts — shadow pass skips them
+  bladesMesh.name = 'grassBlades'; // low-graphics mode hides these
 
   const dands = flowers.filter((f) => f.tint < 0.4);
   const tulips = flowers.filter((f) => f.tint >= 0.4 && f.tint < 0.75);

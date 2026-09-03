@@ -27,10 +27,15 @@ const FIXED_DT = params.has('simdt') ? parseFloat(params.get('simdt')) : 1 / 60;
 let seed = params.has('seed') ? (parseInt(params.get('seed'), 10) >>> 0) : 4242;
 
 // ---------------------------------------------------------------- renderer
+// graphics mode: 'high' (default) or 'low' — persisted, applied before the
+// first frame (toggling reloads so shader programs stay constant)
+let gfxLow = false;
+try { gfxLow = localStorage.getItem('lotlquest-gfx') === 'low'; } catch { /* default high */ }
+
 const app = document.getElementById('app');
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
+const renderer = new THREE.WebGLRenderer({ antialias: !gfxLow, powerPreference: 'high-performance' });
+renderer.setPixelRatio(gfxLow ? 1 : Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = !gfxLow;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
@@ -94,6 +99,10 @@ function buildWorld(newSeed) {
   scene.add(terrain, vegetation, village.group);
   OBSTACLES.length = 0;
   OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles, ...cave.obstacles, ...npcs.obstacles);
+  if (gfxLow) { // fewer fine details in low mode
+    const bladesMesh = vegetation.getObjectByName('grassBlades');
+    if (bladesMesh) bladesMesh.visible = false;
+  }
   peakSpot = findPeak();
   if (minimap) {
     minimap.rebuild();
@@ -413,6 +422,14 @@ document.getElementById('resetSave').addEventListener('click', () => {
   combat.resetSave();
   location.reload();
 });
+{
+  const gfxBtn = document.getElementById('gfxToggle');
+  gfxBtn.textContent = gfxLow ? 'Graphics: Low' : 'Graphics: High';
+  gfxBtn.addEventListener('click', () => {
+    try { localStorage.setItem('lotlquest-gfx', gfxLow ? 'high' : 'low'); } catch { /* no storage */ }
+    location.reload(); // shadows/AA/pixel ratio change cleanly on boot
+  });
+}
 
 // ------------------------------------------------------- landmark discovery
 const toastEl = document.getElementById('toast');

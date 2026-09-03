@@ -63,6 +63,15 @@ const graniteTex = surfaceTex(0x6a41, (ctx, rnd) => {
 for (const m of MAT.plaster) m.map = stuccoTex;
 MAT.stone.map = graniteTex;
 MAT.stoneDark.map = graniteTex;
+// floors and ground decals get polygonOffset so near-coplanar crossings with
+// the terrain can never z-fight, even on sloped building sites
+MAT.floorWood = MAT.wood.clone();
+MAT.floorStone = MAT.stoneDark.clone();
+for (const m of [MAT.floorWood, MAT.floorStone, MAT.dirt]) {
+  m.polygonOffset = true;
+  m.polygonOffsetFactor = -2;
+  m.polygonOffsetUnits = -2;
+}
 
 function mesh(geo, mat, parent, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(geo, mat);
@@ -83,8 +92,8 @@ function house(rng, own = false) {
   const roofMat = MAT.roof[(rng() * MAT.roof.length) | 0].clone();
   const T = 0.15, doorW = 1.1, doorH = 1.75;
 
-  // floor rides 0.14 above the terrain — coplanar floors z-fight and flicker
-  mesh(new THREE.BoxGeometry(w, 0.14, d), MAT.wood, g, 0, 0.15, 0);
+  // floor rides above the terrain + polygonOffset — no z-fighting on slopes
+  mesh(new THREE.BoxGeometry(w, 0.14, d), MAT.floorWood, g, 0, 0.18, 0);
   mesh(new THREE.BoxGeometry(w, h, T), wallMat, g, 0, h / 2, -(d - T) / 2); // back
   mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, -(w - T) / 2, h / 2, 0); // left
   mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, (w - T) / 2, h / 2, 0);  // right
@@ -206,7 +215,7 @@ function armory() {
   const wallMat = MAT.stone.clone();
   const roofMat = MAT.stoneDark.clone();
 
-  mesh(new THREE.BoxGeometry(w, 0.14, d), MAT.stoneDark, g, 0, 0.15, 0); // floor, above the terrain
+  mesh(new THREE.BoxGeometry(w, 0.14, d), MAT.floorStone, g, 0, 0.18, 0); // offset floor — no slope z-fighting
   mesh(new THREE.BoxGeometry(w, h, T), wallMat, g, 0, h / 2, -(d - T) / 2);
   mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, -(w - T) / 2, h / 2, 0);
   mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, (w - T) / 2, h / 2, 0);

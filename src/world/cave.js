@@ -9,7 +9,10 @@ import { WORLD } from './terrain.js';
 
 const ROCK_IN = new THREE.MeshStandardMaterial({ color: 0x4a443e, roughness: 1, side: THREE.DoubleSide });
 const ROCK = new THREE.MeshStandardMaterial({ color: 0x6a645c, roughness: 1 });
-const FLOOR = new THREE.MeshStandardMaterial({ color: 0x3b3630, roughness: 1 });
+const FLOOR = new THREE.MeshStandardMaterial({
+  color: 0x3b3630, roughness: 1,
+  polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+});
 const WOOD = new THREE.MeshStandardMaterial({ color: 0x4a3826, roughness: 0.9 });
 const FLAME = new THREE.MeshStandardMaterial({
   color: 0xffb44d, emissive: 0xff8c2a, emissiveIntensity: 3.2, roughness: 1,
