@@ -6,6 +6,33 @@
 
 import * as THREE from 'three';
 
+// one shared mottled-skin texture (procedural, neutral — multiplies colours)
+let skinTexCache = null;
+function skinTexture() {
+  if (skinTexCache) return skinTexCache;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 128;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#d6d6d6';
+  ctx.fillRect(0, 0, 128, 128);
+  let a = 0x51f7;
+  const rnd = () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  for (let i = 0; i < 260; i++) { // soft mottle + tiny freckles
+    const x = rnd() * 128, y = rnd() * 128, r = 1 + rnd() * 4;
+    ctx.fillStyle = rnd() > 0.4 ? 'rgba(90,90,100,0.10)' : 'rgba(255,255,255,0.09)';
+    for (const [ox, oy] of [[0, 0], [128, 0], [-128, 0], [0, 128], [0, -128]]) {
+      ctx.beginPath();
+      ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  skinTexCache = new THREE.CanvasTexture(cv);
+  skinTexCache.wrapS = skinTexCache.wrapT = THREE.RepeatWrapping;
+  skinTexCache.repeat.set(2, 2);
+  skinTexCache.colorSpace = THREE.SRGBColorSpace;
+  return skinTexCache;
+}
+
 export function buildAxolotl(opts = {}) {
   const C = {
     name: 'coal',
@@ -26,12 +53,14 @@ export function buildAxolotl(opts = {}) {
     tailStyle: 'fin',      // 'fin' | 'curl' (Storm's long curled tail)
     tailColor: null,       // color → tail differs from the body (Coal's black tail)
     trident: null,         // color → holds a trident staff (Matcha)
+    gillStyle: 'spiky',    // 'spiky' | 'round' | 'frilly'
     ...opts,
   };
+  const skin = skinTexture();
   const MAT = {
-    body: new THREE.MeshStandardMaterial({ color: C.body, roughness: 0.55 }),
-    belly: new THREE.MeshStandardMaterial({ color: C.belly, roughness: 0.7 }),
-    stomach: new THREE.MeshStandardMaterial({ color: C.stomach, roughness: 0.6 }),
+    body: new THREE.MeshStandardMaterial({ color: C.body, roughness: 0.55, map: skin }),
+    belly: new THREE.MeshStandardMaterial({ color: C.belly, roughness: 0.7, map: skin }),
+    stomach: new THREE.MeshStandardMaterial({ color: C.stomach, roughness: 0.6, map: skin }),
     white: new THREE.MeshStandardMaterial({ color: C.sclera, roughness: 0.25 }),
     pupil: new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.2 }),
     gill: new THREE.MeshStandardMaterial({ color: C.gill, roughness: 0.55 }),
@@ -149,17 +178,42 @@ export function buildAxolotl(opts = {}) {
     band.scale.set(1.22, 1.0, 0.92);
   }
 
-  // external gills — 3 long frilly stalks per side, flared up and out so they
-  // read in silhouette from any angle (negative z-sign = outward)
+  // external gills — 3 stalks per side, flared up and out. Three styles:
+  // 'spiky' cones (Coal, Storm), 'round' lobes, 'frilly' fans.
   const gills = [];
-  const gillGeo = new THREE.ConeGeometry(0.05, 0.36, 6);
-  gillGeo.translate(0, 0.18, 0);
+  const spikeGeo = new THREE.ConeGeometry(0.05, 0.36, 6);
+  spikeGeo.translate(0, 0.18, 0);
+  const makeGill = () => {
+    const grp = new THREE.Group();
+    if (C.gillStyle === 'round') {
+      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.038, 0.18, 5), MAT.gill);
+      stalk.position.y = 0.09;
+      const lobe = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), MAT.gill);
+      lobe.position.y = 0.24; lobe.scale.set(1, 0.85, 0.55);
+      grp.add(stalk, lobe);
+    } else if (C.gillStyle === 'frilly') {
+      for (const [lean, len] of [[0, 0.36], [0.55, 0.25], [-0.55, 0.25]]) {
+        const geo = new THREE.ConeGeometry(0.042, len, 5);
+        geo.translate(0, len / 2, 0);
+        const frond = new THREE.Mesh(geo, MAT.gill);
+        frond.rotation.z = lean;
+        frond.scale.set(1, 1, 0.4);
+        grp.add(frond);
+      }
+    } else {
+      const spike = new THREE.Mesh(spikeGeo, MAT.gill);
+      spike.scale.set(1, 1, 0.5);
+      grp.add(spike);
+    }
+    grp.traverse((o) => { o.castShadow = true; });
+    return grp;
+  };
   for (const side of [-1, 1]) {
     for (let i = 0; i < 3; i++) {
-      const g = add(gillGeo, MAT.gill, head);
+      const g = makeGill();
+      head.add(g);
       g.position.set(0.24 * side, 0.09 - i * 0.055, -0.06 - i * 0.05);
       g.rotation.set(-0.28 - i * 0.30, 0, -side * (0.88 + i * 0.20));
-      g.scale.set(1, 1, 0.5); // flattened frill
       g.userData.baseZ = g.rotation.z;
       gills.push(g);
     }
@@ -242,8 +296,10 @@ export function buildAxolotl(opts = {}) {
       m.userData.noRecolor = true; // statues keep the trident golden
       staff.add(m);
     }
-    // gripped mid-shaft so the prongs rise well clear of the head
-    staff.position.set(0, 0.1, 0.09);
+    // held diagonally across the body — leaning outward so the prongs rise
+    // clear beside the head instead of clipping through it
+    staff.position.set(-0.04, 0.02, 0.09);
+    staff.rotation.set(0.12, 0, 0.42);
     arms[0].add(staff);
   }
 

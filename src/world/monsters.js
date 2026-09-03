@@ -129,8 +129,8 @@ export function buildMonsters(field, seed, scene) {
       s.blob.position.y = 0.03 - air;
       s.blob.scale.setScalar(Math.max(0.55, 1 - air * 0.3));
 
-      // touching Coal hurts
-      if (dPlayer < CONTACT_R && s.contactCd <= 0) {
+      // touching Coal hurts — but only at his level: a platform is SAFE
+      if (dPlayer < CONTACT_R && s.contactCd <= 0 && Math.abs(player.pos.y - p.y) < 1.2) {
         s.contactCd = 1.0;
         events.contact(s);
       }

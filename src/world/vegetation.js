@@ -6,6 +6,51 @@ import { mulberry32 } from '../util/rng.js';
 import { fbm } from '../util/noise.js';
 import { WORLD } from './terrain.js';
 
+// small neutral canvas textures that multiply the material colours —
+// procedural grain only, never photos
+function canvasTex(size, paint) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#d2d2d2';
+  ctx.fillRect(0, 0, size, size);
+  paint(ctx, size);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function barkTexture(rng) {
+  return canvasTex(128, (ctx, S) => {
+    for (let i = 0; i < 90; i++) { // vertical bark streaks
+      const x = rng() * S, l = 18 + rng() * 40, w = 1 + rng() * 2;
+      ctx.fillStyle = rng() > 0.35 ? 'rgba(60,45,30,0.16)' : 'rgba(255,240,220,0.10)';
+      for (const ox of [0, S, -S]) ctx.fillRect(x + ox, rng() * S - l / 2, w, l);
+    }
+    for (let i = 0; i < 10; i++) { // knots
+      ctx.fillStyle = 'rgba(50,38,26,0.22)';
+      ctx.beginPath();
+      ctx.ellipse(rng() * S, rng() * S, 2.5 + rng() * 2.5, 1.5 + rng() * 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+}
+
+function leafTexture(rng) {
+  return canvasTex(128, (ctx, S) => {
+    for (let i = 0; i < 240; i++) { // leafy blotches, dark and light
+      const x = rng() * S, y = rng() * S, r = 2 + rng() * 5;
+      ctx.fillStyle = rng() > 0.45 ? 'rgba(30,60,25,0.14)' : 'rgba(240,255,220,0.10)';
+      for (const [ox, oy] of [[0, 0], [S, 0], [-S, 0], [0, S], [0, -S]]) {
+        ctx.beginPath();
+        ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  });
+}
+
 function jitterGeometry(geo, rng, amt) {
   const pos = geo.attributes.position;
   const seen = new Map(); // weld-aware jitter so shared verts move together
@@ -90,6 +135,12 @@ export function buildVegetation(field, seed) {
     return { x, z, h, s: 0.8 + rng() * 0.5, tint: rng() };
   });
 
+  const blades = scatter(5200, 26000, (x, z, h) => { // grass tufts
+    if (h < WORLD.seaLevel + 1.2 || h > 16) return null;
+    if (slopeAt(x, z, h) > 1.4 || excluded(x, z)) return null;
+    return { x, z, h, s: 0.7 + rng() * 0.7, r: rng() * Math.PI * 2, tint: rng() };
+  });
+
   const rocks = scatter(90, 4000, (x, z, h) => {
     if (h < WORLD.seaLevel - 0.5 || h > 6) return null; // coastal band
     if (excluded(x, z)) return null;
@@ -97,15 +148,20 @@ export function buildVegetation(field, seed) {
   });
 
   // --- geometry ------------------------------------------------------------
+  const bark = barkTexture(mulberry32(seed + 71));
+  bark.repeat.set(2, 1.4);
+  const leaf = leafTexture(mulberry32(seed + 73));
+  leaf.repeat.set(2, 2);
+
   const trunkGeo = new THREE.CylinderGeometry(0.14, 0.26, 2.4, 7);
   trunkGeo.translate(0, 1.2, 0);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5d4a36, roughness: 0.95 });
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5d4a36, roughness: 0.95, map: bark });
 
   const clumpA = jitterGeometry(new THREE.IcosahedronGeometry(1.5, 1), mulberry32(seed + 11), 0.55);
   clumpA.scale(1.15, 0.9, 1.15); clumpA.translate(0, 3.0, 0);
   const clumpB = jitterGeometry(new THREE.IcosahedronGeometry(1.0, 1), mulberry32(seed + 23), 0.45);
   clumpB.scale(1.05, 0.85, 1.05); clumpB.translate(0.75, 3.8, 0.35);
-  const canopyMat = new THREE.MeshStandardMaterial({ roughness: 0.9 });
+  const canopyMat = new THREE.MeshStandardMaterial({ roughness: 0.9, map: leaf });
 
   const pineTrunkGeo = new THREE.CylinderGeometry(0.09, 0.18, 3.2, 6);
   pineTrunkGeo.translate(0, 1.6, 0);
@@ -113,11 +169,11 @@ export function buildVegetation(field, seed) {
   pineLowGeo.translate(0, 2.9, 0);
   const pineTopGeo = jitterGeometry(new THREE.ConeGeometry(1.0, 2.3, 7), mulberry32(seed + 43), 0.25);
   pineTopGeo.translate(0, 4.6, 0);
-  const pineMat = new THREE.MeshStandardMaterial({ roughness: 0.9 });
+  const pineMat = new THREE.MeshStandardMaterial({ roughness: 0.9, map: leaf });
 
   const bushGeo = jitterGeometry(new THREE.IcosahedronGeometry(0.85, 1), mulberry32(seed + 51), 0.4);
   bushGeo.scale(1.1, 0.72, 1.1); bushGeo.translate(0, 0.5, 0);
-  const bushMat = new THREE.MeshStandardMaterial({ roughness: 0.9 });
+  const bushMat = new THREE.MeshStandardMaterial({ roughness: 0.9, map: leaf });
 
   const shrubGeo = jitterGeometry(new THREE.IcosahedronGeometry(0.5, 0), mulberry32(seed + 61), 0.3);
   shrubGeo.scale(1.2, 0.6, 1.2); shrubGeo.translate(0, 0.28, 0);
@@ -128,6 +184,37 @@ export function buildVegetation(field, seed) {
   const stemMat = new THREE.MeshStandardMaterial({ color: 0x4c7a41, roughness: 0.8 });
   const headGeo = new THREE.SphereGeometry(0.08, 8, 6);
   const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+
+  // a tuft = three lean blades in one little geometry, instanced thousands of
+  // times — the single biggest "not a flat lawn" win
+  const bladeGeo = (() => {
+    const single = new THREE.ConeGeometry(0.028, 0.34, 3);
+    single.translate(0, 0.17, 0);
+    const parts = [];
+    for (const [ox, oz, lean] of [[0, 0, 0], [0.06, 0.03, 0.35], [-0.05, 0.05, -0.3]]) {
+      const c = single.clone();
+      c.rotateZ(lean);
+      c.translate(ox, 0, oz);
+      parts.push(c);
+    }
+    // manual merge (no BufferGeometryUtils in the vendored build) — expand to
+    // non-indexed FIRST, then size the buffers from the expanded arrays
+    const flat = parts.map((p) => (p.index ? p.toNonIndexed() : p));
+    let len = 0;
+    for (const p of flat) len += p.attributes.position.array.length;
+    const pos = new Float32Array(len), nrm = new Float32Array(len);
+    let off = 0;
+    for (const p of flat) {
+      pos.set(p.attributes.position.array, off);
+      nrm.set(p.attributes.normal.array, off);
+      off += p.attributes.position.array.length;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+    return g;
+  })();
+  const bladeMat = new THREE.MeshStandardMaterial({ roughness: 0.95 });
 
   const rockGeo = new THREE.DodecahedronGeometry(0.8, 0);
   rockGeo.scale(1.3, 0.75, 1.0);
@@ -165,6 +252,10 @@ export function buildVegetation(field, seed) {
   fill(new THREE.InstancedMesh(bushGeo, bushMat, bushes.length), bushes,
     { color: (t, c) => c.setHSL(0.28 + t.tint * 0.07, 0.45, 0.24 + t.tint * 0.1) });
   fill(new THREE.InstancedMesh(shrubGeo, shrubMat, shrubs.length), shrubs);
+
+  const bladesMesh = fill(new THREE.InstancedMesh(bladeGeo, bladeMat, blades.length), blades,
+    { sink: 0, color: (t, c) => c.setHSL(0.26 + t.tint * 0.07, 0.5, 0.28 + t.tint * 0.11) });
+  bladesMesh.castShadow = false; // thousands of tufts — shadow pass skips them
 
   fill(new THREE.InstancedMesh(stemGeo, stemMat, flowers.length), flowers, { sink: 0 });
   fill(new THREE.InstancedMesh(headGeo, headMat, flowers.length), flowers.map((f) => ({ ...f, h: f.h + 0.34 * f.s })), {

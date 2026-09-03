@@ -10,7 +10,7 @@ const ROSTER = [
   {
     name: 'Matcha',
     build: {
-      name: 'matcha', body: 0x5d8f4e, belly: 0x476f3a, stomach: 0xaecb92,
+      gillStyle: 'frilly', name: 'matcha', body: 0x5d8f4e, belly: 0x476f3a, stomach: 0xaecb92,
       gill: 0x2c5527, eyeStyle: 'line', brows: 0x2c4a26, // darker green gills
       trident: 0xd4af37, // his golden trident (see the new art)
     },
@@ -26,7 +26,7 @@ const ROSTER = [
   {
     name: 'Bubbles',
     build: {
-      name: 'bubbles', body: 0x39a8a0, belly: 0x2b827c, stomach: 0xc4ece6,
+      gillStyle: 'round', name: 'bubbles', body: 0x39a8a0, belly: 0x2b827c, stomach: 0xc4ece6,
       gill: 0x1f6f6a, eyeStyle: 'round', iris: 0x2a6e78,
     },
     scale: 0.98,
@@ -46,7 +46,7 @@ const ROSTER = [
   {
     name: 'Coral',
     build: {
-      name: 'coral', body: 0xe58bb0, belly: 0xc76e96, stomach: 0xf7d7e4,
+      gillStyle: 'frilly', name: 'coral', body: 0xe58bb0, belly: 0xc76e96, stomach: 0xf7d7e4,
       gill: 0xd45f92, eyeStyle: 'round', iris: 0x8a5fb8,
     },
     scale: 0.96,
@@ -66,7 +66,7 @@ const ROSTER = [
   {
     name: 'Spark',
     build: {
-      name: 'spark', body: 0xe3d15c, belly: 0xcbb648, stomach: 0xf4eebb,
+      gillStyle: 'round', name: 'spark', body: 0xe3d15c, belly: 0xcbb648, stomach: 0xf4eebb,
       gill: 0xc98a52, eyeStyle: 'round', iris: 0x3fa8b8,
     },
     scale: 0.95,
@@ -86,7 +86,7 @@ const ROSTER = [
   {
     name: 'Bubble',
     build: {
-      name: 'bubble', body: 0x8a6b4f, belly: 0x6d5138, stomach: 0xc9ab89,
+      gillStyle: 'round', name: 'bubble', body: 0x8a6b4f, belly: 0x6d5138, stomach: 0xc9ab89,
       gill: 0x54402e, eyeStyle: 'line',
     },
     scale: 1.0,
@@ -106,7 +106,7 @@ const ROSTER = [
 ROSTER.push({
   name: 'Hope',
   build: {
-    name: 'hope', body: 0xd9c98e, belly: 0xbfa96a, stomach: 0xf1e9cf,
+    gillStyle: 'frilly', name: 'hope', body: 0xd9c98e, belly: 0xbfa96a, stomach: 0xf1e9cf,
     gill: 0xc9a55c, eyeStyle: 'round', iris: 0x7d9fc0, lids: true,
     circlet: { band: 0xd4af37, gem: 0x4a7fd4 },
     rings: 0xd4af37,
@@ -160,7 +160,7 @@ const villageHome = (deg, r) => (V) => ({
 ROSTER.push(
   {
     name: 'Splash',
-    build: { name: 'splash', body: 0x3f8fd4, belly: 0x2f6fa8, stomach: 0xcfe6f7, gill: 0x2a5f9e, eyeStyle: 'round', iris: 0x1f4f8a },
+    build: { gillStyle: 'round', name: 'splash', body: 0x3f8fd4, belly: 0x2f6fa8, stomach: 0xcfe6f7, gill: 0x2a5f9e, eyeStyle: 'round', iris: 0x1f4f8a },
     scale: 1.0, roam: 4, home: villageHome(105, 10),
     lines: ['Did someone say swimming?!', 'The fountain is NOT for cannonballs. I checked.', 'Race you around the island! Loser is a land snail.'],
   },
@@ -172,7 +172,7 @@ ROSTER.push(
   },
   {
     name: 'Iris',
-    build: { name: 'iris', body: 0xc9a8e8, belly: 0xa886c9, stomach: 0xf2e6fa, gill: 0xd45f92, limbs: 0x4ec2b8, eyeStyle: 'round', iris: 0x8a5fb8 },
+    build: { gillStyle: 'frilly', name: 'iris', body: 0xc9a8e8, belly: 0xa886c9, stomach: 0xf2e6fa, gill: 0xd45f92, limbs: 0x4ec2b8, eyeStyle: 'round', iris: 0x8a5fb8 },
     scale: 0.97, roam: 4, home: villageHome(230, 11),
     lines: ['I could not pick a favourite colour, so I kept them all.', 'Rain plus sun equals ME.', 'Storm says I am too bright. I take that as a compliment.'],
   },
@@ -184,7 +184,7 @@ ROSTER.push(
   },
   {
     name: 'Memo',
-    build: { name: 'memo', body: 0x7fb8ad, belly: 0x5f968c, stomach: 0xd9efe9, gill: 0x4a7f76, eyeStyle: 'round', iris: 0x35635c },
+    build: { gillStyle: 'round', name: 'memo', body: 0x7fb8ad, belly: 0x5f968c, stomach: 0xd9efe9, gill: 0x4a7f76, eyeStyle: 'round', iris: 0x35635c },
     scale: 0.94, roam: 3, home: villageHome(95, 12),
     lines: ['I remember everything. You blinked twice since we met.', 'Note to self: kelp for dinner. Again.', 'Hope asked me to remember something important. ...It will come back to me.'],
   },
@@ -196,7 +196,7 @@ ROSTER.push(
   },
   {
     name: 'Cosmo',
-    build: { name: 'cosmo', body: 0x35315e, belly: 0x272348, stomach: 0x8d86c4, gill: 0x6a4f9e, eyeStyle: 'round', iris: 0x9fd4ff },
+    build: { gillStyle: 'frilly', name: 'cosmo', body: 0x35315e, belly: 0x272348, stomach: 0x8d86c4, gill: 0x6a4f9e, eyeStyle: 'round', iris: 0x9fd4ff },
     scale: 1.0, roam: 4, home: villageHome(320, 12),
     lines: ['The stars visit the island when everyone sleeps.', 'I counted the sky once. I lost my place at forever.', 'The Moxolotl Cave hums at night. Listen.'],
   },
@@ -208,13 +208,13 @@ ROSTER.push(
   },
   {
     name: 'Wave',
-    build: { name: 'wave', body: 0x3f9fa8, belly: 0x2f7f86, stomach: 0xc9ecef, gill: 0x2a6f76, eyeStyle: 'round', iris: 0xe8f4f6 },
+    build: { gillStyle: 'round', name: 'wave', body: 0x3f9fa8, belly: 0x2f7f86, stomach: 0xc9ecef, gill: 0x2a6f76, eyeStyle: 'round', iris: 0xe8f4f6 },
     scale: 0.98, roam: 4, home: villageHome(133, 12),
     lines: ['The tide goes out. The tide comes back. I respect that.', 'Splash is faster, but I am smoother.', 'Some day I will surf the big storm swell. Do not tell Storm.'],
   },
   {
     name: 'Light',
-    build: { name: 'light', body: 0xf2ecd4, belly: 0xd9d0ae, stomach: 0xfdfbf2, gill: 0xe0b33a, eyeStyle: 'round', iris: 0xd9a441 },
+    build: { gillStyle: 'frilly', name: 'light', body: 0xf2ecd4, belly: 0xd9d0ae, stomach: 0xfdfbf2, gill: 0xe0b33a, eyeStyle: 'round', iris: 0xd9a441 },
     scale: 0.96, roam: 3, home: villageHome(258, 10),
     lines: ['Good morning! It is always morning somewhere.', 'Hope taught me to glow on the inside.', 'Dark caves are just rooms that have not met me yet.'],
   },

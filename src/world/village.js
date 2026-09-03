@@ -28,6 +28,42 @@ const MAT = {
   charcoal: new THREE.MeshStandardMaterial({ color: 0x2a2624, roughness: 1 }),
 };
 
+// procedural surface textures: stucco for plaster walls, granite for stone
+// (statues, fountain, armory) — neutral, multiplying the material colours
+function surfaceTex(seed, paint) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 128;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#d4d4d4';
+  ctx.fillRect(0, 0, 128, 128);
+  let a = seed | 0;
+  const rnd = () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  paint(ctx, rnd);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1.6, 1.6);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+const stuccoTex = surfaceTex(0x57cc, (ctx, rnd) => {
+  for (let i = 0; i < 160; i++) { // soft trowel blotches
+    ctx.fillStyle = rnd() > 0.5 ? 'rgba(120,115,105,0.07)' : 'rgba(255,255,250,0.08)';
+    ctx.beginPath();
+    ctx.arc(rnd() * 128, rnd() * 128, 3 + rnd() * 9, 0, Math.PI * 2);
+    ctx.fill();
+  }
+});
+const graniteTex = surfaceTex(0x6a41, (ctx, rnd) => {
+  for (let i = 0; i < 1400; i++) { // salt-and-pepper mineral flecks
+    const v = rnd();
+    ctx.fillStyle = v > 0.66 ? 'rgba(35,35,40,0.22)' : v > 0.33 ? 'rgba(255,255,255,0.16)' : 'rgba(160,150,140,0.14)';
+    ctx.fillRect(rnd() * 128, rnd() * 128, 1 + rnd() * 2, 1 + rnd() * 2);
+  }
+});
+for (const m of MAT.plaster) m.map = stuccoTex;
+MAT.stone.map = graniteTex;
+MAT.stoneDark.map = graniteTex;
+
 function mesh(geo, mat, parent, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
@@ -47,7 +83,8 @@ function house(rng, own = false) {
   const roofMat = MAT.roof[(rng() * MAT.roof.length) | 0].clone();
   const T = 0.15, doorW = 1.1, doorH = 1.75;
 
-  mesh(new THREE.BoxGeometry(w, 0.14, d), MAT.wood, g, 0, 0.07, 0); // floor
+  // floor rides 0.14 above the terrain — coplanar floors z-fight and flicker
+  mesh(new THREE.BoxGeometry(w, 0.14, d), MAT.wood, g, 0, 0.15, 0);
   mesh(new THREE.BoxGeometry(w, h, T), wallMat, g, 0, h / 2, -(d - T) / 2); // back
   mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, -(w - T) / 2, h / 2, 0); // left
   mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, (w - T) / 2, h / 2, 0);  // right
@@ -169,7 +206,7 @@ function armory() {
   const wallMat = MAT.stone.clone();
   const roofMat = MAT.stoneDark.clone();
 
-  mesh(new THREE.BoxGeometry(w, 0.14, d), MAT.stoneDark, g, 0, 0.07, 0); // floor
+  mesh(new THREE.BoxGeometry(w, 0.14, d), MAT.stoneDark, g, 0, 0.15, 0); // floor, above the terrain
   mesh(new THREE.BoxGeometry(w, h, T), wallMat, g, 0, h / 2, -(d - T) / 2);
   mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, -(w - T) / 2, h / 2, 0);
   mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, (w - T) / 2, h / 2, 0);
@@ -372,7 +409,7 @@ export function buildVillage(field, seed) {
   // town square: packed-dirt plaza + fountain
   const plaza = new THREE.Mesh(new THREE.CircleGeometry(9, 28), MAT.dirt);
   plaza.rotation.x = -Math.PI / 2;
-  plaza.position.set(V.x, ground(V.x, V.z) + 0.04, V.z);
+  plaza.position.set(V.x, ground(V.x, V.z) + 0.07, V.z);
   plaza.receiveShadow = true;
   group.add(plaza);
   place(fountain(), V.x, V.z);
@@ -505,20 +542,39 @@ export function buildVillage(field, seed) {
     const deck = new THREE.Group();
     deck.position.set(P.x, py, P.z);
     deck.rotation.y = Math.atan2(-P.x, -P.z); // faces inland
-    for (const [lx, lz] of [[-0.95, -0.95], [0.95, -0.95], [-0.95, 0.95], [0.95, 0.95]]) {
+    for (const [lx, lz] of [[-1.15, -1.15], [1.15, -1.15], [-1.15, 1.15], [1.15, 1.15]]) {
       mesh(new THREE.CylinderGeometry(0.09, 0.11, 2.3, 7), MAT.woodDark, deck, lx, 1.15, lz);
     }
-    mesh(new THREE.BoxGeometry(2.7, 0.14, 2.7), MAT.wood, deck, 0, 2.3, 0);
-    for (const [rx, rz, ry] of [[0, -1.3, 0], [0, 1.3, 0], [-1.3, 0, Math.PI / 2], [1.3, 0, Math.PI / 2]]) {
-      const rail = mesh(new THREE.BoxGeometry(2.7, 0.08, 0.08), MAT.wood, deck, rx, 3.05, rz);
+    mesh(new THREE.BoxGeometry(3.2, 0.14, 3.2), MAT.wood, deck, 0, 2.3, 0);
+    // railings — the inland (+z) edge keeps a 1m gap where the ramp arrives
+    for (const [rx, rz, ry] of [[0, -1.55, 0], [-1.55, 0, Math.PI / 2], [1.55, 0, Math.PI / 2]]) {
+      const rail = mesh(new THREE.BoxGeometry(3.2, 0.08, 0.08), MAT.wood, deck, rx, 3.05, rz);
       rail.rotation.y = ry;
-      for (const px of [-1.2, 0, 1.2]) {
-        const post = mesh(new THREE.BoxGeometry(0.07, 0.7, 0.07), MAT.wood, deck,
+      for (const px of [-1.4, 0, 1.4]) {
+        mesh(new THREE.BoxGeometry(0.07, 0.7, 0.07), MAT.wood, deck,
           ry === 0 ? px : rx, 2.72, ry === 0 ? rz : px);
-        void post;
       }
     }
+    for (const gx of [-1.15, 1.15]) { // short guard rails beside the gap
+      mesh(new THREE.BoxGeometry(0.85, 0.08, 0.08), MAT.wood, deck, gx, 3.05, 1.55);
+      mesh(new THREE.BoxGeometry(0.07, 0.7, 0.07), MAT.wood, deck, gx, 2.72, 1.55);
+    }
+    // climbing ramp up the inland side (grade ~0.7 — the slope gate allows it)
+    const rampRise = 2.37, rampRun = 3.3;
+    const rampPlank = mesh(new THREE.BoxGeometry(1.0, 0.12, Math.hypot(rampRun, rampRise) + 0.25), MAT.woodDark,
+      deck, 0, rampRise / 2 - 0.03, 1.6 + rampRun / 2);
+    rampPlank.rotation.x = Math.atan2(rampRise, rampRun);
     group.add(deck);
+    { // walkable: ramp + platform (world-space, deck frame)
+      const rot = deck.rotation.y, dc = Math.cos(rot), dsn = Math.sin(rot);
+      const w2 = (lx, lz) => ({ x: P.x + lx * dc + lz * dsn, z: P.z - lx * dsn + lz * dc });
+      const rampC = w2(0, 1.6 + rampRun / 2);
+      const platC = w2(0, 0);
+      walkSurfaces.push(
+        { type: 'ramp', rot, hw: 0.55, hl: rampRun / 2 + 0.25, cx: rampC.x, cz: rampC.z, y0: py + 0.04, y1: py + rampRise + 0.06 },
+        { type: 'rect', rot, hw: 1.6, hl: 1.6, cx: platC.x, cz: platC.z, y: py + rampRise + 0.06 },
+      );
+    }
     // two archery targets on sticks
     for (const [tx, tz] of [[4.2, 1.6], [5.0, -1.8]]) {
       const wx = P.x + tx, wz = P.z + tz, wy = ground(wx, wz);
@@ -547,7 +603,12 @@ export function buildVillage(field, seed) {
       const log = mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.8, 6), MAT.woodDark, group, fx, fy + 0.14, fz);
       log.rotation.set(Math.PI / 2.2, 0, lr);
     }
-    obstacles.push({ x: P.x, z: P.z, r: 1.55 });
+    { // only the deck LEGS block movement — the platform above is walkable
+      const rot = deck.rotation.y, dc = Math.cos(rot), dsn = Math.sin(rot);
+      for (const [lx, lz] of [[-1.15, -1.15], [1.15, -1.15], [-1.15, 1.15], [1.15, 1.15]]) {
+        obstacles.push({ x: P.x + lx * dc + lz * dsn, z: P.z - lx * dsn + lz * dc, r: 0.2 });
+      }
+    }
 
     // fishing pier: march out from the point to a gentle water entry
     let W = null;

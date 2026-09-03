@@ -123,7 +123,10 @@ export function makeHeightField(seed) {
       }
     }
   }
-  WORLD.cave = { x: cave.x, z: cave.z, dirX: cave.dirX, dirZ: cave.dirZ, pitR: 6.5, pitDepth: 4.5 };
+  WORLD.cave = {
+    x: cave.x, z: cave.z, dirX: cave.dirX, dirZ: cave.dirZ,
+    r: 11, h: Math.max(rawHeightAt(cave.x, cave.z), WORLD.seaLevel + 1.5),
+  };
 
   // keep trees/rocks out of the built-up spots
   WORLD.landmarkExclusions = [
@@ -141,13 +144,51 @@ export function makeHeightField(seed) {
     // level the village site so buildings sit naturally
     const dv = Math.hypot(x - WORLD.village.x, z - WORLD.village.z);
     h = lerp(WORLD.village.h, h, smoothstep(WORLD.village.r * 0.55, WORLD.village.r * 1.2, dv));
-    // sink the Moxolotl Cave's entrance pit into the valley floor
+    // level a pad for the Moxolotl Cave's rock structure
     const dcv = Math.hypot(x - WORLD.cave.x, z - WORLD.cave.z);
-    h -= WORLD.cave.pitDepth * (1 - smoothstep(WORLD.cave.pitR * 0.45, WORLD.cave.pitR * 1.15, dcv));
+    h = lerp(WORLD.cave.h, h, smoothstep(WORLD.cave.r * 0.55, WORLD.cave.r * 1.25, dcv));
     return h;
   }
 
   return { seed: S, heightAt };
+}
+
+// tiling ground-grain canvas: soft value noise + speckles + blade strokes.
+// Multiplies the vertex colours, so grass/sand/rock all pick up the detail.
+function makeGroundTexture(seed) {
+  const S = 256;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const ctx = cv.getContext('2d');
+  const rnd = (function () { let a = (seed | 0) ^ 0x9e37; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
+  ctx.fillStyle = '#d9d9d9';
+  ctx.fillRect(0, 0, S, S);
+  const img = ctx.getImageData(0, 0, S, S);
+  for (let i = 0; i < img.data.length; i += 4) { // per-pixel soft grain
+    const v = 208 + (rnd() * 46 - 20);
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+  }
+  ctx.putImageData(img, 0, 0);
+  const stroke = (alpha, light) => {
+    ctx.strokeStyle = light ? `rgba(255,255,255,${alpha})` : `rgba(70,80,60,${alpha})`;
+    ctx.lineWidth = 1;
+    // draw wrapped so the tile seams stay invisible
+    const x = rnd() * S, y = rnd() * S, a = rnd() * Math.PI, l = 3 + rnd() * 6;
+    for (const [ox, oy] of [[0, 0], [S, 0], [-S, 0], [0, S], [0, -S]]) {
+      ctx.beginPath();
+      ctx.moveTo(x + ox, y + oy);
+      ctx.lineTo(x + ox + Math.sin(a) * l, y + oy - Math.abs(Math.cos(a)) * l);
+      ctx.stroke();
+    }
+  };
+  for (let i = 0; i < 420; i++) stroke(0.10, false); // dark blade strokes
+  for (let i = 0; i < 260; i++) stroke(0.08, true);  // light catches
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(WORLD.size / 7, WORLD.size / 7); // ~7m tiles, hidden by the two-frequency tint
+  tex.anisotropy = 4;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 const COL = {
@@ -209,8 +250,13 @@ export function buildTerrainMesh(field, segments = WORLD.size / 2) {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-  // DoubleSide: an underground camera must see solid ground, never x-ray sky
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1.0, metalness: 0, side: THREE.DoubleSide });
+  // DoubleSide: an underground camera must see solid ground, never x-ray sky.
+  // A procedural grain texture (multiplying the vertex-colour splat) breaks up
+  // the flat single-colour read — speckle + faint blade strokes, no photos.
+  const mat = new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 1.0, metalness: 0, side: THREE.DoubleSide,
+    map: makeGroundTexture(field.seed),
+  });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
   mesh.name = 'terrain';

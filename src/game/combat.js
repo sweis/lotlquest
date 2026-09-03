@@ -72,7 +72,9 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
       if (s.pos && Number.isFinite(s.pos.x) && Number.isFinite(s.pos.z)) savedPos = s.pos;
     }
   } catch { /* fresh start */ }
+  let saveDisabled = false; // set by resetSave — autosave/pagehide must not resurrect the data
   function save() {
+    if (saveDisabled) return;
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         tokens: state.tokens, melee: state.melee, bow: state.bow, shell: state.shell,
@@ -133,10 +135,32 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     const tip = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 5), ARROW_MAT);
     tip.rotation.x = Math.PI / 2; tip.position.z = 0.32;
     m.add(shaft, tip);
-    m.position.set(p.x + Math.sin(h) * 0.5, p.y + 0.62, p.z + Math.cos(h) * 0.5);
+    const launchY = p.y + 0.62;
+    m.position.set(p.x + Math.sin(h) * 0.5, launchY, p.z + Math.cos(h) * 0.5);
     m.rotation.y = h;
     scene.add(m);
-    arrows.push({ m, vx: Math.sin(h) * 16, vz: Math.cos(h) * 16, vy: 1.1, t: 2.2 });
+    // soft aim-assist: loft toward the nearest slime roughly ahead, so
+    // shooting down from a perch (or across a dip) actually connects
+    let vy = 1.1;
+    if (monstersRef) {
+      let best = null, bestD = 25;
+      for (const s of monstersRef.slimes) {
+        if (!s.alive) continue;
+        const dx = s.mesh.position.x - p.x, dz = s.mesh.position.z - p.z;
+        const d = Math.hypot(dx, dz);
+        if (d > bestD || d < 1) continue;
+        let ang = Math.atan2(dx, dz) - h;
+        ang = Math.atan2(Math.sin(ang), Math.cos(ang));
+        if (Math.abs(ang) > 0.55) continue;
+        best = s; bestD = d;
+      }
+      if (best) {
+        const t = bestD / 16; // flight time at arrow speed
+        const dy = (best.mesh.position.y + 0.38) - launchY;
+        vy = dy / t + 0.5 * 3.5 * t; // gravity-compensated loft
+      }
+    }
+    arrows.push({ m, vx: Math.sin(h) * 16, vz: Math.cos(h) * 16, vy, t: 2.2 });
   }
 
   let monstersRef = null;
@@ -335,6 +359,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
   }
 
   function resetSave() {
+    saveDisabled = true; // the reload's pagehide autosave was re-writing the save
     try { localStorage.removeItem(SAVE_KEY); } catch { /* nothing to clear */ }
   }
 

@@ -93,7 +93,7 @@ function buildWorld(newSeed) {
   npcs = createNPCs(field, scene, village.landmarks, village.stalls, OBSTACLES);
   scene.add(terrain, vegetation, village.group);
   OBSTACLES.length = 0;
-  OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles, ...npcs.obstacles);
+  OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles, ...cave.obstacles, ...npcs.obstacles);
   peakSpot = findPeak();
   if (minimap) {
     minimap.rebuild();
@@ -541,9 +541,8 @@ function frame(now) {
     homeArrow.rotation.y += dt * 1.3;
     homeArrow.position.y = homeArrow.userData.baseY + Math.sin(now * 0.0028) * 0.3;
   }
-  const underground = fieldRef.isDry(controller.state.pos.x, controller.state.pos.z);
-  camera.setIndoor(insideAnyHouse || underground);
-  camera.setUnderground(underground);
+  const inCave = cave.inside(controller.state.pos.x, controller.state.pos.z);
+  camera.setIndoor(insideAnyHouse || inCave);
   cave.update(dt); // torch flicker
   saveTimer += dt;
   if (saveTimer > 6 && phase === 'playing') { saveTimer = 0; combat.save(); } // keep everything

@@ -131,7 +131,9 @@ export function createController(initialField, playerRoot, obstacles = []) {
       const run = Math.hypot(tx - state.pos.x, tz - state.pos.z);
       if (run > 1e-6) {
         const rise = h1 - field.heightAt(state.pos.x, state.pos.z);
-        if (rise / run > MAX_GRADE) return true; // downhill is always allowed
+        // steep faces block, but a small STEP (platform seams, stair lips)
+        // is always climbable; downhill is always allowed
+        if (rise / run > MAX_GRADE && rise > 0.42) return true;
       }
       return false;
     }
