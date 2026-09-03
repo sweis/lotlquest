@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../util/rng.js';
 import { WORLD } from './terrain.js';
-import { buildCoal } from '../player/coal.js';
+import { buildCoal, buildAxolotl } from '../player/coal.js';
 
 const MAT = {
   plaster: [0xe9dfc8, 0xf0e8d8, 0xdac9a2].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 })),
@@ -256,7 +256,15 @@ function fountain() {
   mesh(new THREE.CylinderGeometry(0.85, 0.6, 0.3, 14), MAT.stone, g, 0, 1.68, 0); // upper basin
   const upper = mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.06, 14), waterMat, g, 0, 1.82, 0);
   upper.castShadow = false;
-  mesh(new THREE.SphereGeometry(0.2, 10, 8), MAT.stoneDark, g, 0, 2.02, 0); // spout cap
+  // crowning statue: an axolotl holding a golden trident
+  const statueTop = buildAxolotl({ name: 'fountainStatue', trident: 0xd4af37 });
+  statueTop.root.traverse((o) => {
+    if (o.name === 'blobShadow') { o.visible = false; return; }
+    if (o.isMesh && !o.userData.noRecolor) { o.material = MAT.stone; o.castShadow = true; }
+  });
+  statueTop.root.scale.setScalar(0.85);
+  statueTop.root.position.set(0, 1.86, 0);
+  g.add(statueTop.root);
   // falling-water streams from the upper basin to the pool
   for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI * 2 + 0.4;
@@ -282,6 +290,28 @@ function statue() {
   coal.position.y = 0.9;
   g.add(coal);
   return { g, r: 1.9 };
+}
+
+function fishStand() {
+  // the fishmonger's table on the square — sell your catch here
+  const g = new THREE.Group();
+  mesh(new THREE.BoxGeometry(1.9, 0.8, 1.0), MAT.woodDark, g, 0, 0.62, 0);
+  for (const [px, pz] of [[-0.85, -0.4], [0.85, -0.4], [-0.85, 0.4], [0.85, 0.4]]) {
+    mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.9, 6), MAT.wood, g, px, 0.95, pz);
+  }
+  const awn = mesh(new THREE.BoxGeometry(2.2, 0.07, 1.4), MAT.awning[1], g, 0, 1.96, 0.1);
+  awn.rotation.x = -0.2;
+  const fishMat = new THREE.MeshStandardMaterial({ color: 0x7fa3c9, roughness: 0.35 });
+  for (let f = 0; f < 3; f++) {
+    const fish = mesh(new THREE.CapsuleGeometry(0.1, 0.3, 4, 8), fishMat, g, -0.55 + f * 0.55, 1.08, 0.05);
+    fish.rotation.z = Math.PI / 2;
+    fish.scale.set(1, 1, 0.55);
+    const tail = mesh(new THREE.ConeGeometry(0.09, 0.16, 5), fishMat, g, -0.85 + f * 0.55, 1.08, 0.05);
+    tail.rotation.z = -Math.PI / 2;
+    tail.scale.set(1, 1, 0.4);
+  }
+  mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.75, 10), MAT.wood, g, 1.25, 0.37, 0.65);
+  return { g, r: 1.5 };
 }
 
 function bentKelpGeometry() {
@@ -346,6 +376,16 @@ export function buildVillage(field, seed) {
   plaza.receiveShadow = true;
   group.add(plaza);
   place(fountain(), V.x, V.z);
+
+  // the fish stand at the square's south-west edge (click to sell your catch)
+  let fishStandPos = null;
+  {
+    const a = (205 / 180) * Math.PI;
+    const x = V.x + Math.sin(a) * 6.8, z = V.z + Math.cos(a) * 6.8;
+    const fg = place(fishStand(), x, z);
+    fg.traverse((o) => { o.userData.shopMode = 'fishsale'; });
+    fishStandPos = { x, z };
+  }
 
   // houses ring the square — kept clear of the stall arc (30–90°) and the
   // armory (272°) so nothing stands in front of anything
@@ -457,8 +497,9 @@ export function buildVillage(field, seed) {
   kelps.castShadow = true;
   group.add(kelps);
 
-  // the hunting point: lookout deck, targets, campfire
+  // the hunting point: lookout deck, targets, campfire, fishing pier
   const P = WORLD.hunt;
+  let fishSpot = null;
   {
     const py = ground(P.x, P.z);
     const deck = new THREE.Group();
@@ -507,6 +548,53 @@ export function buildVillage(field, seed) {
       log.rotation.set(Math.PI / 2.2, 0, lr);
     }
     obstacles.push({ x: P.x, z: P.z, r: 1.55 });
+
+    // fishing pier: march out from the point to a gentle water entry
+    let W = null;
+    for (let a = 0; a < Math.PI * 2 && !W; a += 0.2) {
+      for (let r = 6; r < 45; r += 2) {
+        const x = P.x + Math.sin(a) * r, z = P.z + Math.cos(a) * r;
+        const h = ground(x, z);
+        if (h < WORLD.seaLevel + 0.35 && h > WORLD.seaLevel - 0.5) {
+          const slope = Math.abs(ground(x + 2, z) - h) + Math.abs(ground(x, z + 2) - h);
+          if (slope < 1.1) W = { x, z, a, gy: h };
+          break; // water reached along this bearing either way
+        }
+        if (h < WORLD.seaLevel - 0.5) break;
+      }
+    }
+    if (W) {
+      const deckY = WORLD.seaLevel + 0.45;
+      const pier = new THREE.Group();
+      pier.position.set(W.x, 0, W.z);
+      pier.rotation.y = Math.atan2(Math.sin(W.a), Math.cos(W.a)); // seaward
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.12, 4.2), MAT.wood);
+      deck.position.set(0, deckY, 1.9);
+      const walkOn = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.1, 1.6), MAT.wood);
+      walkOn.position.set(0, (W.gy + deckY) / 2 - 0.02, -0.5);
+      walkOn.rotation.x = Math.atan2(deckY - W.gy, 1.5);
+      pier.add(deck, walkOn);
+      for (const ppz of [0.6, 2.1, 3.6]) {
+        for (const ppx of [-0.5, 0.5]) {
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 1.7, 6), MAT.woodDark);
+          post.position.set(ppx, deckY - 0.75, ppz);
+          pier.add(post);
+        }
+      }
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.032, 1.8, 5), MAT.woodDark);
+      rod.position.set(0.5, deckY + 0.7, 3.5);
+      rod.rotation.set(-0.55, 0, 0.35);
+      pier.add(rod);
+      pier.traverse((o) => { o.userData.fishSpot = true; if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      group.add(pier);
+      const rot = pier.rotation.y, cs2 = Math.cos(rot), sn2 = Math.sin(rot);
+      // walkable: an approach ramp from the shore, then the deck itself
+      walkSurfaces.push(
+        { type: 'ramp', rot, hw: 0.65, hl: 0.85, cx: W.x - 0.5 * sn2, cz: W.z - 0.5 * cs2, y0: deckY + 0.06, y1: W.gy + 0.03 },
+        { type: 'rect', rot, hw: 0.65, hl: 2.1, cx: W.x + 1.9 * sn2, cz: W.z + 1.9 * cs2, y: deckY + 0.06 },
+      );
+      fishSpot = { x: W.x + 3.2 * sn2, z: W.z + 3.2 * cs2 };
+    }
   }
 
   const landmarks = [
@@ -521,5 +609,5 @@ export function buildVillage(field, seed) {
   ];
 
   group.userData.counts = { houses, stalls: 3, kelp: kelpSpots.length, landmarks: landmarks.length };
-  return { group, obstacles, landmarks, fadeHouses, stalls, walkSurfaces, rack, brewStand };
+  return { group, obstacles, landmarks, fadeHouses, stalls, walkSurfaces, rack, brewStand, fishStandPos, fishSpot };
 }

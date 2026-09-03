@@ -28,6 +28,11 @@ export const POTIONS = [
   { id: 'pot3', name: 'Lucky Fizz', desc: 'Slimes drop extra tokens for 60 seconds.', price: 6, buff: 'luck', dur: 60 },
 ];
 export const INGREDIENTS = ['kelp', 'berry', 'petal'];
+export const FISH = [
+  { id: 'minnow', name: 'Minnow', price: 2, odds: 0.6 },
+  { id: 'trout', name: 'Kelp Trout', price: 5, odds: 0.3 },
+  { id: 'sunfish', name: 'Sunfish', price: 12, odds: 0.1 },
+];
 export const RECIPES = [
   { id: 'brew1', name: 'Zoom Juice', desc: 'Brew it yourself: 2 kelp.', cost: { kelp: 2 }, buff: 'speed', dur: 45 },
   { id: 'brew2', name: 'Stoneskin Tonic', desc: '2 berries and a kelp frond.', cost: { berry: 2, kelp: 1 }, buff: 'guard', dur: 45 },
@@ -49,6 +54,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     kills: 0,
     buffs: { speed: 0, guard: 0, luck: 0 }, // seconds remaining (potions)
     ingredients: { kelp: 0, berry: 0, petal: 0 },
+    fish: { minnow: 0, trout: 0, sunfish: 0 },
   };
   const maxHp = () => state.baseMaxHp + state.shell * 2;
 
@@ -59,6 +65,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     if (s) {
       state.tokens = s.tokens | 0; state.melee = s.melee | 0; state.bow = s.bow | 0; state.shell = s.shell | 0;
       if (s.ingredients) for (const k of INGREDIENTS) state.ingredients[k] = s.ingredients[k] | 0;
+      if (s.fish) for (const f of FISH) state.fish[f.id] = s.fish[f.id] | 0;
       state.equippedMelee = Math.min(s.equippedMelee ?? state.melee, state.melee);
       if (s.weapon === 'bow' && state.bow) state.weapon = 'bow';
       if (typeof s.hp === 'number') state.hp = Math.max(2, Math.min(s.hp, state.baseMaxHp + state.shell * 2));
@@ -70,7 +77,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         tokens: state.tokens, melee: state.melee, bow: state.bow, shell: state.shell,
         equippedMelee: state.equippedMelee,
-        ingredients: state.ingredients, weapon: state.weapon, hp: state.hp,
+        ingredients: state.ingredients, fish: state.fish, weapon: state.weapon, hp: state.hp,
         pos: {
           x: +controller.state.pos.x.toFixed(1),
           z: +controller.state.pos.z.toFixed(1),
@@ -248,6 +255,28 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     return 'ok';
   }
 
+  function rollCatch() { // weighted by FISH odds
+    let r = Math.random();
+    for (const f of FISH) { if (r < f.odds) return f; r -= f.odds; }
+    return FISH[0];
+  }
+
+  function catchFish(id) {
+    const f = FISH.find((x) => x.id === id) ?? rollCatch();
+    state.fish[f.id]++;
+    save(); onChange();
+    return f;
+  }
+
+  function sellFish(id) { // sells the whole stack of one kind
+    const f = FISH.find((x) => x.id === id);
+    if (!f || state.fish[f.id] <= 0) return 'none to sell';
+    state.tokens += state.fish[f.id] * f.price;
+    state.fish[f.id] = 0;
+    save(); onChange();
+    return 'ok';
+  }
+
   function collectIngredient(kind) {
     if (!(kind in state.ingredients)) return;
     state.ingredients[kind]++;
@@ -311,7 +340,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
 
   return {
     state, maxHp, update, tryAttack, damagePlayer, buy, buyFood, buyPotion,
-    collectIngredient, canBrew, brew, getSavedPos, equip,
+    collectIngredient, canBrew, brew, getSavedPos, equip, catchFish, sellFish,
     setWeapon, setMonsters, respawn, dropTokens, save, resetSave,
   };
 }

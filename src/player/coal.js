@@ -239,6 +239,7 @@ export function buildAxolotl(opts = {}) {
       const m = new THREE.Mesh(geo, tMat);
       m.position.set(px, py, pz);
       m.castShadow = true;
+      m.userData.noRecolor = true; // statues keep the trident golden
       staff.add(m);
     }
     // gripped mid-shaft so the prongs rise well clear of the head

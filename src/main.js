@@ -180,11 +180,13 @@ function updateHUD() {
     wnames[combat.state.weapon] + (combat.state.bow ? '  ·  1/2 to switch' : '') + '  ·  F to attack' +
     (active.length ? '  ·  ' + active.join(' · ') : '');
   const ing = combat.state.ingredients;
+  const fishTotal = combat.state.fish.minnow + combat.state.fish.trout + combat.state.fish.sunfish;
   document.getElementById('ingRow').innerHTML =
-    (ing.kelp + ing.berry + ing.petal) === 0 ? '' :
+    ((ing.kelp + ing.berry + ing.petal + fishTotal) === 0 ? '' :
       `<span><span class="ing ing-kelp"></span>${ing.kelp}</span>` +
       `<span><span class="ing ing-berry"></span>${ing.berry}</span>` +
-      `<span><span class="ing ing-petal"></span>${ing.petal}</span>`;
+      `<span><span class="ing ing-petal"></span>${ing.petal}</span>` +
+      (fishTotal ? `<span>🐟 ${fishTotal}</span>` : ''));
   // Coal's weapon rack at home mirrors what he owns
   if (village && village.rack) {
     village.rack.sword1.visible = combat.state.melee >= 1;
@@ -221,7 +223,16 @@ const SHOP_SPOTS = [
   { mode: 'market', r: 2.7, at: () => village.stalls.find((s) => s.mode === 'market') },
   { mode: 'potions', r: 2.7, at: () => village.stalls.find((s) => s.mode === 'potions') },
   { mode: 'brewing', r: 2.2, at: () => village.brewStand },
+  { mode: 'fishsale', r: 2.6, at: () => village.fishStandPos },
 ];
+
+// ------------------------------------------------------- fishing
+let fishing = null; // { t, dur }
+function startFishing() {
+  if (fishing) return;
+  fishing = { t: 0, dur: 1.8 + Math.random() * 2.8 };
+  showToast('Fishing…');
+}
 
 function onPlayerDeath() {
   setPhase('lost');
@@ -278,8 +289,22 @@ scene.add(walkMarker);
       return;
     }
 
-    // a shop? (stall, the armory, or the cauldron) — click to open, never auto
     const vHits = ray.intersectObjects(village.group.children, true);
+
+    // the fishing pier? cast a line if close, walk over if not
+    if (vHits.length && vHits[0].object.userData.fishSpot && village.fishSpot) {
+      const fs = village.fishSpot;
+      const d = Math.hypot(controller.state.pos.x - fs.x, controller.state.pos.z - fs.z);
+      if (d < 3.6) {
+        startFishing();
+      } else {
+        controller.setWalkTarget(fs.x, fs.z);
+        walkMarker.position.set(fs.x, WORLD.seaLevel + 0.55, fs.z);
+      }
+      return;
+    }
+
+    // a shop? (stall, the armory, or the cauldron) — click to open, never auto
     if (vHits.length && vHits[0].object.userData.shopMode) {
       const mode = vHits[0].object.userData.shopMode;
       const hp = vHits[0].point;
@@ -336,6 +361,7 @@ const CONTROLS = [
   ['click / tap ground', 'walk there'],
   ['click an axolotl', 'talk (click again for more)'],
   ['click a stall / armory / cauldron', 'shop or brew'],
+  ['click the pier at the Hunting Point', 'fish — sell your catch at the fish stand'],
   ['F', 'attack (bite, sword, or bow)'],
   ['I / 🎒', 'inventory — equip any weapon you own'],
   ['1 / 2', 'switch melee / bow'],
@@ -437,6 +463,19 @@ function simTick(dt) {
   coal.animate(dt, paused ? 0 : s.speed, s.grounded, airGap);
   if (!paused) {
     combat.update(dt);
+    if (fishing) {
+      if (controller.state.speed > 0.4) {
+        fishing = null;
+        showToast('The fish got away…');
+      } else {
+        fishing.t += dt;
+        if (fishing.t >= fishing.dur) {
+          const f = combat.catchFish();
+          showToast(`Caught a ${f.name}!`);
+          fishing = null;
+        }
+      }
+    }
     pickups.update(dt, controller.state, (kind) => combat.collectIngredient(kind));
     npcs.update(dt, controller.state);
     // walking away ends a conversation
@@ -576,6 +615,8 @@ function getState() {
       monstersAlive: monsters.aliveCount(), shopOpen: shop.isOpen(),
       buffs: { ...combat.state.buffs },
       ingredients: { ...combat.state.ingredients },
+      fish: { ...combat.state.fish },
+      fishing: !!fishing,
     },
     entities: {
       ...(vegetation.userData.counts), ...(village.group.userData.counts),
@@ -671,6 +712,9 @@ window.lotl = {
   surfaces: () => village.walkSurfaces,
   pickups: () => pickups.items.map((i) => ({ kind: i.kind, x: +i.home.x.toFixed(1), z: +i.home.z.toFixed(1), alive: i.alive })),
   equip(id) { const r = combat.equip(id); return r; },
+  fish() { startFishing(); },
+  catchFish(id) { const f = combat.catchFish(id); return f.name; },
+  fishSpot: () => village.fishSpot,
   openShop(mode) { shop.open(mode); },
   closeShop() { shop.close(); },
   monsters: () => monsters,

@@ -2,7 +2,7 @@
 // stall (meals that heal) and the potion stall (timed brews). Opens when Coal
 // walks up; closes on Leave / Esc / walking away.
 
-import { WEAPONS, ARMOR, FOOD, POTIONS, RECIPES } from './combat.js';
+import { WEAPONS, ARMOR, FOOD, POTIONS, RECIPES, FISH } from './combat.js';
 
 const MODES = {
   armory: { title: 'The Armory', items: ARMOR, kind: 'gear' },
@@ -10,6 +10,7 @@ const MODES = {
   market: { title: 'Food Stall', items: FOOD, kind: 'food' },
   potions: { title: 'Potion Stall', items: POTIONS, kind: 'potion' },
   brewing: { title: "Coal's Potion Maker", items: RECIPES, kind: 'brew' },
+  fishsale: { title: 'Fish Stand', items: FISH, kind: 'sell' },
 };
 
 const costText = (cost) => Object.keys(cost).map((k) => `${cost[k]} ${k}`).join(' · ');
@@ -35,14 +36,20 @@ export function createShop(combat, onClose) {
       const owned = M.kind === 'gear' && combat.state[item.kind] >= item.tier;
       const full = M.kind === 'food' && combat.state.hp >= combat.maxHp();
       const active = (M.kind === 'potion' || M.kind === 'brew') && combat.state.buffs[item.buff] > 0;
-      const afford = M.kind === 'brew' ? combat.canBrew(item.id) : combat.state.tokens >= item.price;
+      const stock = M.kind === 'sell' ? combat.state.fish[item.id] : 0;
+      const afford = M.kind === 'brew' ? combat.canBrew(item.id)
+        : M.kind === 'sell' ? stock > 0
+        : combat.state.tokens >= item.price;
       const enabled = !owned && !full && !active && afford;
       const row = document.createElement('div');
       row.className = 'shopItem';
       const label = owned ? 'Owned' : full ? 'Full' : active ? 'Active'
-        : M.kind === 'brew' ? 'Brew' : `${item.price} ⬤`;
+        : M.kind === 'brew' ? 'Brew'
+        : M.kind === 'sell' ? `Sell ${stock} (+${stock * item.price} ⬤)`
+        : `${item.price} ⬤`;
+      const desc = M.kind === 'sell' ? `Worth ${item.price} tokens each. You have ${stock}.` : item.desc;
       row.innerHTML =
-        `<div class="info"><b>${item.name}</b><span>${item.desc}</span>` +
+        `<div class="info"><b>${item.name}</b><span>${desc}</span>` +
         (M.kind === 'brew' ? `<span>Needs: ${costText(item.cost)}</span>` : '') + '</div>' +
         `<button class="buy" ${enabled ? '' : 'disabled'}>${label}</button>`;
       if (enabled) {
@@ -50,6 +57,7 @@ export function createShop(combat, onClose) {
           if (M.kind === 'food') combat.buyFood(item.id);
           else if (M.kind === 'potion') combat.buyPotion(item.id);
           else if (M.kind === 'brew') combat.brew(item.id);
+          else if (M.kind === 'sell') combat.sellFish(item.id);
           else combat.buy(item.id);
           render();
         });
