@@ -27,6 +27,12 @@ export const POTIONS = [
   { id: 'pot2', name: 'Stoneskin Tonic', desc: 'Slimes cannot hurt you for 45 seconds.', price: 10, buff: 'guard', dur: 45 },
   { id: 'pot3', name: 'Lucky Fizz', desc: 'Slimes drop extra tokens for 60 seconds.', price: 6, buff: 'luck', dur: 60 },
 ];
+export const INGREDIENTS = ['kelp', 'berry', 'petal'];
+export const RECIPES = [
+  { id: 'brew1', name: 'Zoom Juice', desc: 'Brew it yourself: 2 kelp.', cost: { kelp: 2 }, buff: 'speed', dur: 45 },
+  { id: 'brew2', name: 'Stoneskin Tonic', desc: '2 berries and a kelp frond.', cost: { berry: 2, kelp: 1 }, buff: 'guard', dur: 45 },
+  { id: 'brew3', name: 'Lucky Fizz', desc: '2 petals and a berry.', cost: { petal: 2, berry: 1 }, buff: 'luck', dur: 60 },
+];
 
 const TOKEN_GEO = new THREE.CylinderGeometry(0.16, 0.16, 0.05, 12);
 const TOKEN_MAT = new THREE.MeshStandardMaterial({ color: 0xf4c95d, roughness: 0.3, metalness: 0.7 });
@@ -37,34 +43,65 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     hp: 10, baseMaxHp: 10,
     tokens: 0,
     melee: 0, bow: 0, shell: 0,     // owned tiers
+    equippedMelee: 0,                // which melee is in hand (0 bite … ≤ melee)
     weapon: 'melee',                 // active: 'melee' | 'bow'
     attackCd: 0, invulnT: 0,
     kills: 0,
     buffs: { speed: 0, guard: 0, luck: 0 }, // seconds remaining (potions)
+    ingredients: { kelp: 0, berry: 0, petal: 0 },
   };
   const maxHp = () => state.baseMaxHp + state.shell * 2;
 
-  // ---- save / load (progress only, never position) ----
+  // ---- save / load: EVERYTHING persists between plays ----
+  let savedPos = null;
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-    if (s) { state.tokens = s.tokens | 0; state.melee = s.melee | 0; state.bow = s.bow | 0; state.shell = s.shell | 0; }
+    if (s) {
+      state.tokens = s.tokens | 0; state.melee = s.melee | 0; state.bow = s.bow | 0; state.shell = s.shell | 0;
+      if (s.ingredients) for (const k of INGREDIENTS) state.ingredients[k] = s.ingredients[k] | 0;
+      state.equippedMelee = Math.min(s.equippedMelee ?? state.melee, state.melee);
+      if (s.weapon === 'bow' && state.bow) state.weapon = 'bow';
+      if (typeof s.hp === 'number') state.hp = Math.max(2, Math.min(s.hp, state.baseMaxHp + state.shell * 2));
+      if (s.pos && Number.isFinite(s.pos.x) && Number.isFinite(s.pos.z)) savedPos = s.pos;
+    }
   } catch { /* fresh start */ }
   function save() {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(
-        { tokens: state.tokens, melee: state.melee, bow: state.bow, shell: state.shell }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        tokens: state.tokens, melee: state.melee, bow: state.bow, shell: state.shell,
+        equippedMelee: state.equippedMelee,
+        ingredients: state.ingredients, weapon: state.weapon, hp: state.hp,
+        pos: {
+          x: +controller.state.pos.x.toFixed(1),
+          z: +controller.state.pos.z.toFixed(1),
+          heading: +controller.state.heading.toFixed(2),
+        },
+      }));
     } catch { /* private mode etc. */ }
   }
+  const getSavedPos = () => savedPos;
 
   function applyGear() {
-    coal.setSword(state.weapon === 'melee' ? state.melee : 0);
+    coal.setSword(state.weapon === 'melee' ? state.equippedMelee : 0);
+    coal.setBow(state.weapon === 'bow' ? state.bow : 0);
     coal.setShell(state.shell);
     state.hp = Math.min(state.hp, maxHp());
     onChange();
   }
   applyGear();
 
-  function meleeDamage() { return [1, 2, 3][state.melee]; } // bare bite = 1
+  function meleeDamage() { return [1, 2, 3][state.equippedMelee]; } // bare bite = 1
+
+  // equip from the inventory: 'bite', 'sword1', 'sword2', 'bow1'
+  function equip(id) {
+    if (id === 'bite') { state.weapon = 'melee'; state.equippedMelee = 0; }
+    else if (id === 'sword1' && state.melee >= 1) { state.weapon = 'melee'; state.equippedMelee = 1; }
+    else if (id === 'sword2' && state.melee >= 2) { state.weapon = 'melee'; state.equippedMelee = 2; }
+    else if (id === 'bow1' && state.bow >= 1) { state.weapon = 'bow'; }
+    else return 'not owned';
+    save(); applyGear();
+    return 'ok';
+  }
 
   // ---- floating tokens ----
   const drops = [];
@@ -206,8 +243,31 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     state.tokens -= item.price;
     state[item.kind] = item.tier;
     if (item.kind === 'bow') state.weapon = 'bow';
-    if (item.kind === 'melee') state.weapon = 'melee';
+    if (item.kind === 'melee') { state.weapon = 'melee'; state.equippedMelee = item.tier; }
     save(); applyGear();
+    return 'ok';
+  }
+
+  function collectIngredient(kind) {
+    if (!(kind in state.ingredients)) return;
+    state.ingredients[kind]++;
+    save(); onChange();
+  }
+
+  function canBrew(id) {
+    const r = RECIPES.find((x) => x.id === id);
+    if (!r || state.buffs[r.buff] > 0) return false;
+    return Object.keys(r.cost).every((k) => state.ingredients[k] >= r.cost[k]);
+  }
+
+  function brew(id) {
+    const r = RECIPES.find((x) => x.id === id);
+    if (!r) return 'unknown recipe';
+    if (state.buffs[r.buff] > 0) return 'already active';
+    if (!canBrew(id)) return 'missing ingredients';
+    for (const k of Object.keys(r.cost)) state.ingredients[k] -= r.cost[k];
+    state.buffs[r.buff] = r.dur;
+    save(); onChange();
     return 'ok';
   }
 
@@ -249,5 +309,9 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     try { localStorage.removeItem(SAVE_KEY); } catch { /* nothing to clear */ }
   }
 
-  return { state, maxHp, update, tryAttack, damagePlayer, buy, buyFood, buyPotion, setWeapon, setMonsters, respawn, dropTokens, save, resetSave };
+  return {
+    state, maxHp, update, tryAttack, damagePlayer, buy, buyFood, buyPotion,
+    collectIngredient, canBrew, brew, getSavedPos, equip,
+    setWeapon, setMonsters, respawn, dropTokens, save, resetSave,
+  };
 }

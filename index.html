@@ -113,6 +113,13 @@
     box-shadow: 0 2px 8px rgba(8,14,22,.3);
   }
   #helpBtn:hover { background: #ffffff; }
+  #bagBtn {
+    position: absolute; top: 12px; right: 58px; width: 36px; height: 36px;
+    display: none; border-radius: 50%; border: 0; cursor: pointer;
+    background: rgba(248,250,252,.85); font-size: 17px;
+    box-shadow: 0 2px 8px rgba(8,14,22,.3);
+  }
+  #bagBtn:hover { background: #ffffff; }
 
   /* HUD: hearts + tokens + weapon — upper right, under the help button */
   #hud {
@@ -124,6 +131,11 @@
   #hearts .empty { color: rgba(240,244,248,.4); }
   #tokenRow { font-size: 17px; color: #f4f8fb; font-weight: 600; display: flex; align-items: center; gap: 7px; text-shadow: 0 1px 3px rgba(8,14,22,.5); }
   .coin { width: 14px; height: 14px; border-radius: 50%; background: #f4c95d; display: inline-block; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25); }
+  #ingRow { font-size: 13px; color: #f4f8fb; display: flex; align-items: center; gap: 9px; text-shadow: 0 1px 3px rgba(8,14,22,.5); }
+  .ing { width: 11px; height: 11px; border-radius: 50%; display: inline-block; margin-right: 3px; vertical-align: -1px; box-shadow: inset 0 -1px 0 rgba(0,0,0,.3); }
+  .ing-kelp { background: #3f9d55; }
+  .ing-berry { background: #d94f4f; }
+  .ing-petal { background: #e58bb0; }
   #weaponRow { font-size: 12px; color: #dfe9f2; letter-spacing: .06em; text-shadow: 0 1px 2px rgba(8,14,22,.5); }
 
   #hurtflash { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(200,50,40,.5)); opacity: 0; transition: opacity .18s; }
@@ -206,12 +218,15 @@
 <div id="dialog" class="ui"><div id="dialogName"></div><div id="dialogText"></div><div class="hint">click for more · Esc to close</div></div>
 <div id="toast" class="ui"></div>
 <button id="helpBtn" class="ui">?</button>
+<button id="bagBtn" class="ui">🎒</button>
 <div id="hud" class="ui">
   <div id="hearts"></div>
   <div id="tokenRow"><span class="coin"></span><span id="tokenCount">0</span></div>
+  <div id="ingRow"></div>
   <div id="weaponRow"></div>
 </div>
 <div id="shop" class="sheet ui"><h2 id="shopTitle">The Armory</h2><div id="shopTok"></div><div id="shopItems"></div><button id="shopClose">Leave</button></div>
+<div id="inventory" class="sheet ui"><h2>Inventory</h2><div id="inventoryBody"></div><button id="inventoryClose">Close</button></div>
 <div id="hurtflash"></div>
 <div id="joy" class="ui"><div id="joyKnob"></div></div>
 <button id="attackBtn" class="ui">⚔</button>

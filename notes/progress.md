@@ -1,5 +1,37 @@
 # LotlQuest (three.js) — progress
 
+## 2026-08-29 — v0.14: village 2.0 — the big one (Steve's request burst)
+
+- **Fountain** replaces the well in the square (tiered stone, water discs, jets).
+- **Two-storey enterable houses**: loft slab over the FRONT (doorway gets a ceiling),
+  stairs along the open back wall (grade 0.7 — the first layout was 2.1 and the slope
+  gate refused it), right-wall landing. Table+stools down, bed up. Generic WALK
+  SURFACES system in main.walkGround: oriented rect/ramp surfaces (dir x|z), rule =
+  highest surface within 0.55 step-up of the player; walking off an edge just falls.
+- **Enterable armory** (hollow stone, display racks inside, fades like houses).
+- **Coal's House** (gilded door, off the square, landmark+toast): weapon rack that
+  mirrors owned gear (rack sync in updateHUD), potion-maker cauldron.
+- **Ingredients**: kelp/berry/petal pickups (24, bob+spin, magnet collect, 75s
+  respawn) near kelp grounds/groves/meadows; HUD dots row; brewing at the cauldron
+  turns them into the same buffs as Coral's stall (RECIPES).
+- **Inventory** (I / 🎒): equip ANY owned weapon — bite, wooden sword, iron sword,
+  bow (state.equippedMelee drives damage + hand visual).
+- **Full cast**: Splash, Flame, Iris, Gold, Memo, Pebble, Cosmo, Spot, Wave, Light
+  join (17 NPCs total). Draw calls up accordingly — instancing NPCs is future work.
+- **Moxolotl Cave is BACK** (pit carve + build + landmark) — underground grounding
+  rides the new surface logic; camera has an explicit underground mode (hover above
+  the PLAYER's floor, never snap to the mountain top).
+- **Keep everything**: the save now includes tokens, gear, equipped weapon, hp,
+  ingredients and POSITION (6s autosave + pagehide + every change); reload resumes
+  in place. Verified: reload at the hill resumed 6m from the statue with all state.
+- **Shops are click-to-open** (Steve: standing between stalls trapped you in menus):
+  stall/armory/cauldron meshes carry userData.shopMode; click within 5m opens, a far
+  click walks over; walking away still closes. No proximity auto-open anywhere.
+- Verified: stairs walk-up (9.0→11.0), pickups collect, brewing gates+buff, equip
+  switching, no-auto-open between stalls, click-open food stall, cave round trip,
+  full-persistence reload. NOT verified: mobile pass on new UI, armory interior look,
+  upstairs camera feel.
+
 ## 2026-08-28 — v0.12: Storm at the kelp grounds; camera ground-clip fix (Steve, with art)
 
 - **Storm** (from the "storm" drawing): black axolotl with a SOLID black belly,

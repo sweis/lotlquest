@@ -141,8 +141,9 @@ export function makeHeightField(seed) {
     // level the village site so buildings sit naturally
     const dv = Math.hypot(x - WORLD.village.x, z - WORLD.village.z);
     h = lerp(WORLD.village.h, h, smoothstep(WORLD.village.r * 0.55, WORLD.village.r * 1.2, dv));
-    // (the Moxolotl Cave pit carve lived here — shelved for now, the site
-    // survey in WORLD.cave remains for when the cave returns)
+    // sink the Moxolotl Cave's entrance pit into the valley floor
+    const dcv = Math.hypot(x - WORLD.cave.x, z - WORLD.cave.z);
+    h -= WORLD.cave.pitDepth * (1 - smoothstep(WORLD.cave.pitR * 0.45, WORLD.cave.pitR * 1.15, dcv));
     return h;
   }
 

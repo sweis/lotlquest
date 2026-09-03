@@ -8,8 +8,11 @@ import { buildVegetation } from './world/vegetation.js';
 import { buildVillage } from './world/village.js';
 import { buildTrails } from './world/trails.js';
 import { buildMonsters } from './world/monsters.js';
+import { buildCave } from './world/cave.js';
+import { buildPickups } from './world/pickups.js';
 import { createNPCs } from './world/npcs.js';
 import { createDialog } from './game/dialog.js';
+import { createInventory } from './game/inventory.js';
 import { createTouchControls } from './game/touch.js';
 import { buildCoal } from './player/coal.js';
 import { createController } from './player/controller.js';
@@ -44,7 +47,7 @@ document.getElementById('ctxlost').addEventListener('pointerdown', () => locatio
 const scene = new THREE.Scene();
 
 // ---------------------------------------------------------------- world
-let field, terrain, vegetation, village, monsters, npcs, peakSpot;
+let field, terrain, vegetation, village, monsters, npcs, cave, pickups, peakSpot;
 let minimap = null, combat = null;
 const OBSTACLES = []; // building colliders, refilled on world build
 const water = buildWater();
@@ -76,12 +79,17 @@ function buildWorld(newSeed) {
   }
   if (monsters) monsters.dispose(scene);
   if (npcs) npcs.dispose(scene);
+  if (cave) cave.dispose(scene);
+  if (pickups) pickups.dispose(scene);
   field = makeHeightField(seed);
   terrain = buildTerrainMesh(field);
   buildTrails(field, terrain); // paints paths into the terrain colors, sets WORLD.trails
   vegetation = buildVegetation(field, seed);
   village = buildVillage(field, seed);
+  cave = buildCave(field, scene, seed);
+  village.landmarks.push(cave.landmark); // toast + map dot + teleport spot
   monsters = buildMonsters(field, seed, scene);
+  pickups = buildPickups(field, seed, scene);
   npcs = createNPCs(field, scene, village.landmarks, village.stalls);
   scene.add(terrain, vegetation, village.group);
   OBSTACLES.length = 0;
@@ -98,15 +106,50 @@ buildWorld(seed);
 // live reference so setSeed() swaps terrain under everyone at once.
 // groundAt = the rendered mesh surface (installed by buildTerrainMesh) — all
 // gameplay stands on that, never on the analytic field (floats at crests).
+// Ground resolution for GAMEPLAY: the terrain mesh, plus walkable built
+// surfaces (upper floors, stair ramps — the highest one within step-up reach
+// of the player), plus the cave floor (which wins when the player is closer
+// to it than to the mountain above). groundAt stays the raw terrain.
+let _controller = null;
+function walkGround(x, z) {
+  let g = field.groundAt(x, z);
+  const py = _controller ? _controller.state.pos.y : null;
+  if (py === null) return g;
+  if (cave) {
+    const cf = cave.floorAt(x, z);
+    if (cf !== null && Math.abs(py - cf) < Math.abs(py - g)) return cf;
+  }
+  if (village) {
+    for (const s of village.walkSurfaces) {
+      const dx = x - s.cx, dz = z - s.cz;
+      const cs = Math.cos(s.rot), sn = Math.sin(s.rot);
+      const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+      const ga = s.dir === 'x' ? lx : lz, gb = s.dir === 'x' ? lz : lx; // gradient axis / breadth axis
+      if (Math.abs(gb) > s.hw || Math.abs(ga) > s.hl) continue;
+      const y = s.type === 'rect' ? s.y : s.y0 + (s.y1 - s.y0) * ((s.hl - ga) / (2 * s.hl));
+      if (y <= py + 0.55 && y > g) g = y; // step-up reach only — never teleport onto a floor above
+    }
+  }
+  return g;
+}
+const undergroundAt = (x, z) => {
+  if (!cave) return false;
+  const cf = cave.floorAt(x, z);
+  if (cf === null) return false;
+  const py = _controller ? _controller.state.pos.y : 1e9;
+  return Math.abs(py - cf) < Math.abs(py - field.groundAt(x, z));
+};
 const fieldRef = {
-  heightAt: (x, z) => field.groundAt(x, z),
+  heightAt: walkGround,
   groundAt: (x, z) => field.groundAt(x, z),
+  isDry: undergroundAt, // cave floors below sea level are NOT water
 };
 
 // ---------------------------------------------------------------- player + camera
 const coal = buildCoal();
 scene.add(coal.root);
 const controller = createController(fieldRef, coal.root, OBSTACLES);
+_controller = controller;
 const camera = createCamera(renderer, fieldRef);
 controller.state.heading = 0; // face island centre (+Z)
 camera.snapBehind(controller.state);
@@ -128,7 +171,7 @@ function updateHUD() {
   }
   hpEl.innerHTML = html;
   document.getElementById('tokenCount').textContent = combat.state.tokens;
-  const wnames = { melee: ['Bite', 'Wooden Sword', 'Iron Sword'][combat.state.melee], bow: 'Kelp Bow' };
+  const wnames = { melee: ['Bite', 'Wooden Sword', 'Iron Sword'][combat.state.equippedMelee], bow: 'Kelp Bow' };
   const buffNames = { speed: 'Zoom!', guard: 'Stoneskin', luck: 'Lucky' };
   const active = Object.keys(combat.state.buffs)
     .filter((k) => combat.state.buffs[k] > 0)
@@ -136,22 +179,48 @@ function updateHUD() {
   document.getElementById('weaponRow').textContent =
     wnames[combat.state.weapon] + (combat.state.bow ? '  ·  1/2 to switch' : '') + '  ·  F to attack' +
     (active.length ? '  ·  ' + active.join(' · ') : '');
+  const ing = combat.state.ingredients;
+  document.getElementById('ingRow').innerHTML =
+    (ing.kelp + ing.berry + ing.petal) === 0 ? '' :
+      `<span><span class="ing ing-kelp"></span>${ing.kelp}</span>` +
+      `<span><span class="ing ing-berry"></span>${ing.berry}</span>` +
+      `<span><span class="ing ing-petal"></span>${ing.petal}</span>`;
+  // Coal's weapon rack at home mirrors what he owns
+  if (village && village.rack) {
+    village.rack.sword1.visible = combat.state.melee >= 1;
+    village.rack.sword2.visible = combat.state.melee >= 2;
+    village.rack.bow1.visible = combat.state.bow >= 1;
+    village.rack.shell1.visible = combat.state.shell >= 1;
+    village.rack.shell2.visible = combat.state.shell >= 2;
+  }
 }
 combat = createCombat({ scene, coal, controller, field: fieldRef, onChange: updateHUD });
 combat.setMonsters(monsters);
 updateHUD();
-// closing a shop (Leave, Esc, walking away) blocks reopening THAT shop until
-// Coal leaves its radius — otherwise proximity reopens the sheet next frame
+let saveTimer = 0;
+// resume exactly where the last session ended
+{
+  const sp = combat.getSavedPos();
+  if (sp && field.groundAt(sp.x, sp.z) > WORLD.seaLevel - 0.6) {
+    controller.teleport(sp.x, sp.z, sp.heading ?? 0);
+    camera.snapBehind(controller.state);
+  }
+}
+window.addEventListener('pagehide', () => combat.save());
+const inventory = createInventory(combat);
+document.getElementById('inventoryClose').addEventListener('click', () => inventory.close());
+document.getElementById('bagBtn').addEventListener('click', () => inventory.toggle());
+// shops open only when the player clicks a stall/building — never by proximity
 const dialog = createDialog();
 const touch = createTouchControls({ controller, combat, camera });
-const shop = createShop(combat, (closedMode) => { shopBlockMode = closedMode; });
+const shop = createShop(combat, () => {});
 document.getElementById('shopClose').addEventListener('click', () => shop.close());
-let shopBlockMode = null;
 const SHOP_SPOTS = [
   { mode: 'armory', r: 5.2, at: () => village.landmarks.find((l) => l.name === 'The Armory') },
   { mode: 'weapons', r: 2.7, at: () => village.stalls.find((s) => s.mode === 'weapons') },
   { mode: 'market', r: 2.7, at: () => village.stalls.find((s) => s.mode === 'market') },
   { mode: 'potions', r: 2.7, at: () => village.stalls.find((s) => s.mode === 'potions') },
+  { mode: 'brewing', r: 2.2, at: () => village.brewStand },
 ];
 
 function onPlayerDeath() {
@@ -166,6 +235,8 @@ function onPlayerDeath() {
 
 window.addEventListener('keydown', (e) => {
   if (phase !== 'playing' || shop.isOpen()) return;
+  if (e.code === 'KeyI' || e.key === 'i' || e.key === 'I') { if (!e.repeat) inventory.toggle(); }
+  if (inventory.isOpen()) return;
   if (e.code === 'KeyF' || e.key === 'f' || e.key === 'F') { if (!e.repeat) combat.tryAttack(); }
   if (e.code === 'Digit1' || e.key === '1') combat.setWeapon('melee');
   if (e.code === 'Digit2' || e.key === '2') combat.setWeapon('bow');
@@ -203,6 +274,22 @@ scene.add(walkMarker);
       } else {
         controller.setWalkTarget(p.x, p.z);
         walkMarker.position.set(p.x, field.groundAt(p.x, p.z) + 0.08, p.z);
+      }
+      return;
+    }
+
+    // a shop? (stall, the armory, or the cauldron) — click to open, never auto
+    const vHits = ray.intersectObjects(village.group.children, true);
+    if (vHits.length && vHits[0].object.userData.shopMode) {
+      const mode = vHits[0].object.userData.shopMode;
+      const hp = vHits[0].point;
+      const d = Math.hypot(controller.state.pos.x - hp.x, controller.state.pos.z - hp.z);
+      if (d < 5) {
+        shop.open(mode);
+        controller.keys.clear();
+      } else {
+        controller.setWalkTarget(hp.x, hp.z);
+        walkMarker.position.set(hp.x, field.groundAt(hp.x, hp.z) + 0.08, hp.z);
       }
       return;
     }
@@ -248,7 +335,9 @@ const CONTROLS = [
   ['Q / E', 'sidestep'],
   ['click / tap ground', 'walk there'],
   ['click an axolotl', 'talk (click again for more)'],
+  ['click a stall / armory / cauldron', 'shop or brew'],
   ['F', 'attack (bite, sword, or bow)'],
+  ['I / 🎒', 'inventory — equip any weapon you own'],
   ['1 / 2', 'switch melee / bow'],
   ['Space', 'jump'],
   ['drag mouse', 'orbit camera — it holds that angle as you move'],
@@ -287,6 +376,7 @@ function setPhase(p) {
     document.getElementById('minimap').style.display = 'block';
     document.getElementById('hud').style.display = 'flex';
     document.getElementById('helpBtn').style.display = 'block';
+    document.getElementById('bagBtn').style.display = 'block';
   }
 }
 document.getElementById('helpBtn').addEventListener('click', () => {
@@ -324,6 +414,7 @@ document.getElementById('resumeBtn').addEventListener('click', () => setPhase('p
 document.getElementById('helpClose').addEventListener('click', () => { helpEl.style.display = 'none'; });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && helpEl.style.display === 'block') { helpEl.style.display = 'none'; return; }
+  if (e.key === 'Escape' && inventory.isOpen()) { inventory.close(); return; }
   if (e.key === 'Escape' && dialog.isOpen()) { dialog.close(); return; }
   if (e.key === 'Escape' && shop.isOpen()) { shop.close(); return; } // close() blocks reopen itself
   if (e.key === 'Escape' && phase === 'playing') setPhase('paused');
@@ -346,6 +437,7 @@ function simTick(dt) {
   coal.animate(dt, paused ? 0 : s.speed, s.grounded, airGap);
   if (!paused) {
     combat.update(dt);
+    pickups.update(dt, controller.state, (kind) => combat.collectIngredient(kind));
     npcs.update(dt, controller.state);
     // walking away ends a conversation
     if (dialog.isOpen()) {
@@ -382,18 +474,13 @@ function frame(now) {
   if (phase === 'playing') updateLandmarks();
   minimap.draw(controller.state, { npcs: npcs.list, monsters: monsters.slimes });
 
-  // shops open when Coal walks up to their door/stalls
-  if (phase === 'playing') {
-    for (const spot of SHOP_SPOTS) {
-      const lm = spot.at();
-      if (!lm) continue;
+  // shops are click-to-open; walking away from an open one closes it
+  if (phase === 'playing' && shop.isOpen()) {
+    const spot = SHOP_SPOTS.find((s) => s.mode === shop.mode());
+    const lm = spot && spot.at();
+    if (lm) {
       const d = Math.hypot(controller.state.pos.x - lm.x, controller.state.pos.z - lm.z);
-      if (shopBlockMode === spot.mode && d > spot.r + 2) shopBlockMode = null;
-      if (d < spot.r && !shop.isOpen() && shopBlockMode !== spot.mode) {
-        shop.open(spot.mode);
-        controller.keys.clear();
-      }
-      if (shop.mode() === spot.mode && d > spot.r + 2.5) shop.close();
+      if (d > spot.r + 4) shop.close();
     }
   }
 
@@ -409,7 +496,12 @@ function frame(now) {
       m.transparent = m.opacity < 0.995;
     }
   }
-  camera.setIndoor(insideAnyHouse);
+  const underground = fieldRef.isDry(controller.state.pos.x, controller.state.pos.z);
+  camera.setIndoor(insideAnyHouse || underground);
+  camera.setUnderground(underground);
+  cave.update(dt); // torch flicker
+  saveTimer += dt;
+  if (saveTimer > 6 && phase === 'playing') { saveTimer = 0; combat.save(); } // keep everything
 
   // walk marker: visible while a click target is active, gentle pulse
   const wt = controller.state.walkTarget;
@@ -473,9 +565,11 @@ function getState() {
     combat: {
       hp: combat.state.hp, maxHp: combat.maxHp(), tokens: combat.state.tokens,
       melee: combat.state.melee, bow: combat.state.bow, shell: combat.state.shell,
+      equippedMelee: combat.state.equippedMelee,
       weapon: combat.state.weapon, kills: combat.state.kills,
       monstersAlive: monsters.aliveCount(), shopOpen: shop.isOpen(),
       buffs: { ...combat.state.buffs },
+      ingredients: { ...combat.state.ingredients },
     },
     entities: {
       ...(vegetation.userData.counts), ...(village.group.userData.counts),
@@ -521,6 +615,8 @@ const NAMED_SPOTS = {
   hill: lmSpot('Hope of the Axolotls Hill', 0, -6),
   kelp: lmSpot('The Kelp Grounds', 0, 14),
   hunt: lmSpot('The Hunting Point', -4, 4),
+  cave: lmSpot('Moxolotl Cave', 0, 0),
+  home: lmSpot("Coal's House", 0, -4),
 };
 
 window.lotl = {
@@ -563,6 +659,12 @@ window.lotl = {
   buy(id) { const r = combat.buy(id); shop.render(); return r; },
   buyFood(id) { const r = combat.buyFood(id); shop.render(); return r; },
   buyPotion(id) { const r = combat.buyPotion(id); shop.render(); return r; },
+  brew(id) { const r = combat.brew(id); shop.render(); return r; },
+  giveIngredients(n) { for (const k of ['kelp', 'berry', 'petal']) combat.state.ingredients[k] += n | 0; combat.save(); updateHUD(); },
+  cave: () => ({ entrance: cave.entrance, chamber: cave.chamber }),
+  surfaces: () => village.walkSurfaces,
+  pickups: () => pickups.items.map((i) => ({ kind: i.kind, x: +i.home.x.toFixed(1), z: +i.home.z.toFixed(1), alive: i.alive })),
+  equip(id) { const r = combat.equip(id); return r; },
   openShop(mode) { shop.open(mode); },
   closeShop() { shop.close(); },
   monsters: () => monsters,

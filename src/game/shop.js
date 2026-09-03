@@ -2,14 +2,17 @@
 // stall (meals that heal) and the potion stall (timed brews). Opens when Coal
 // walks up; closes on Leave / Esc / walking away.
 
-import { WEAPONS, ARMOR, FOOD, POTIONS } from './combat.js';
+import { WEAPONS, ARMOR, FOOD, POTIONS, RECIPES } from './combat.js';
 
 const MODES = {
   armory: { title: 'The Armory', items: ARMOR, kind: 'gear' },
   weapons: { title: 'Weapon Stall', items: WEAPONS, kind: 'gear' },
   market: { title: 'Food Stall', items: FOOD, kind: 'food' },
   potions: { title: 'Potion Stall', items: POTIONS, kind: 'potion' },
+  brewing: { title: "Coal's Potion Maker", items: RECIPES, kind: 'brew' },
 };
+
+const costText = (cost) => Object.keys(cost).map((k) => `${cost[k]} ${k}`).join(' · ');
 
 export function createShop(combat, onClose) {
   const el = document.getElementById('shop');
@@ -22,25 +25,31 @@ export function createShop(combat, onClose) {
     const M = MODES[mode];
     if (!M) return;
     titleEl.textContent = M.title;
-    tokEl.innerHTML = `You have <span class="coin"></span> <b>${combat.state.tokens}</b> tokens` +
-      (M.kind === 'food' ? ` · ${combat.state.hp / 2}/${combat.maxHp() / 2} hearts` : '');
+    const ing = combat.state.ingredients;
+    tokEl.innerHTML = M.kind === 'brew'
+      ? `You have <b>${ing.kelp}</b> kelp · <b>${ing.berry}</b> berries · <b>${ing.petal}</b> petals`
+      : `You have <span class="coin"></span> <b>${combat.state.tokens}</b> tokens` +
+        (M.kind === 'food' ? ` · ${combat.state.hp / 2}/${combat.maxHp() / 2} hearts` : '');
     itemsEl.innerHTML = '';
     for (const item of M.items) {
       const owned = M.kind === 'gear' && combat.state[item.kind] >= item.tier;
       const full = M.kind === 'food' && combat.state.hp >= combat.maxHp();
-      const active = M.kind === 'potion' && combat.state.buffs[item.buff] > 0;
-      const afford = combat.state.tokens >= item.price;
+      const active = (M.kind === 'potion' || M.kind === 'brew') && combat.state.buffs[item.buff] > 0;
+      const afford = M.kind === 'brew' ? combat.canBrew(item.id) : combat.state.tokens >= item.price;
       const enabled = !owned && !full && !active && afford;
       const row = document.createElement('div');
       row.className = 'shopItem';
+      const label = owned ? 'Owned' : full ? 'Full' : active ? 'Active'
+        : M.kind === 'brew' ? 'Brew' : `${item.price} ⬤`;
       row.innerHTML =
-        `<div class="info"><b>${item.name}</b><span>${item.desc}</span></div>` +
-        `<button class="buy" ${enabled ? '' : 'disabled'}>` +
-        (owned ? 'Owned' : full ? 'Full' : active ? 'Active' : `${item.price} ⬤`) + '</button>';
+        `<div class="info"><b>${item.name}</b><span>${item.desc}</span>` +
+        (M.kind === 'brew' ? `<span>Needs: ${costText(item.cost)}</span>` : '') + '</div>' +
+        `<button class="buy" ${enabled ? '' : 'disabled'}>${label}</button>`;
       if (enabled) {
         row.querySelector('button').addEventListener('click', () => {
           if (M.kind === 'food') combat.buyFood(item.id);
           else if (M.kind === 'potion') combat.buyPotion(item.id);
+          else if (M.kind === 'brew') combat.brew(item.id);
           else combat.buy(item.id);
           render();
         });

@@ -151,6 +151,75 @@ ROSTER.push({
   ],
 });
 
+// The rest of the paper's cast — everyone lives around the village.
+// Simple palettes, short lines; villageHome scatters them on the ring.
+const villageHome = (deg, r) => (V) => ({
+  x: V.x + Math.sin((deg / 180) * Math.PI) * r,
+  z: V.z + Math.cos((deg / 180) * Math.PI) * r,
+});
+ROSTER.push(
+  {
+    name: 'Splash',
+    build: { name: 'splash', body: 0x3f8fd4, belly: 0x2f6fa8, stomach: 0xcfe6f7, gill: 0x2a5f9e, eyeStyle: 'round', iris: 0x1f4f8a },
+    scale: 1.0, roam: 4, home: villageHome(105, 10),
+    lines: ['Did someone say swimming?!', 'The fountain is NOT for cannonballs. I checked.', 'Race you around the island! Loser is a land snail.'],
+  },
+  {
+    name: 'Flame',
+    build: { name: 'flame', body: 0xd4703f, belly: 0xa8542c, stomach: 0xf2c9a8, gill: 0xc2452a, eyeStyle: 'line' },
+    scale: 1.0, roam: 3, home: villageHome(160, 12),
+    lines: ['I am not hot-headed. I am warm-spirited.', 'One day I will see the mountain breathe fire. One day.', 'Cold water is a personal insult.'],
+  },
+  {
+    name: 'Iris',
+    build: { name: 'iris', body: 0xc9a8e8, belly: 0xa886c9, stomach: 0xf2e6fa, gill: 0xd45f92, limbs: 0x4ec2b8, eyeStyle: 'round', iris: 0x8a5fb8 },
+    scale: 0.97, roam: 4, home: villageHome(230, 11),
+    lines: ['I could not pick a favourite colour, so I kept them all.', 'Rain plus sun equals ME.', 'Storm says I am too bright. I take that as a compliment.'],
+  },
+  {
+    name: 'Gold',
+    build: { name: 'gold', body: 0xd9a441, belly: 0xb5842e, stomach: 0xf4e3b8, gill: 0xc28a2a, eyeStyle: 'line' },
+    scale: 1.02, roam: 3, home: villageHome(285, 13),
+    lines: ['No, I am not made of tokens. Stop biting me, Spark.', 'Shiny on the outside, shinier on the inside.', 'The Gold lotl always pays his debts.'],
+  },
+  {
+    name: 'Memo',
+    build: { name: 'memo', body: 0x7fb8ad, belly: 0x5f968c, stomach: 0xd9efe9, gill: 0x4a7f76, eyeStyle: 'round', iris: 0x35635c },
+    scale: 0.94, roam: 3, home: villageHome(55, 14),
+    lines: ['I remember everything. You blinked twice since we met.', 'Note to self: kelp for dinner. Again.', 'Hope asked me to remember something important. ...It will come back to me.'],
+  },
+  {
+    name: 'Pebble',
+    build: { name: 'pebble', body: 0x8a93a3, belly: 0x6d7684, stomach: 0xd3d9e0, gill: 0x5a6473, eyeStyle: 'line' },
+    scale: 0.92, roam: 2.5, home: villageHome(200, 16),
+    lines: ['Rocks are just very patient friends.', 'I have named every stone on this beach. That one is Gerald.', 'Slow and steady. Mostly slow.'],
+  },
+  {
+    name: 'Cosmo',
+    build: { name: 'cosmo', body: 0x35315e, belly: 0x272348, stomach: 0x8d86c4, gill: 0x6a4f9e, eyeStyle: 'round', iris: 0x9fd4ff },
+    scale: 1.0, roam: 4, home: villageHome(320, 12),
+    lines: ['The stars visit the island when everyone sleeps.', 'I counted the sky once. I lost my place at forever.', 'The Moxolotl Cave hums at night. Listen.'],
+  },
+  {
+    name: 'Spot',
+    build: { name: 'spot', body: 0xded7c9, belly: 0xbfb6a4, stomach: 0xf7f3ea, gill: 0x2b2b33, eyeStyle: 'line', brows: 0x2b2b33 },
+    scale: 1.0, roam: 4, home: villageHome(10, 13),
+    lines: ['They call me Spot. Long story. Mad Bao knows.', 'You should see my OTHER spots.', 'I spotted you first. That is how it works.'],
+  },
+  {
+    name: 'Wave',
+    build: { name: 'wave', body: 0x3f9fa8, belly: 0x2f7f86, stomach: 0xc9ecef, gill: 0x2a6f76, eyeStyle: 'round', iris: 0xe8f4f6 },
+    scale: 0.98, roam: 4, home: villageHome(130, 17),
+    lines: ['The tide goes out. The tide comes back. I respect that.', 'Splash is faster, but I am smoother.', 'Some day I will surf the big storm swell. Do not tell Storm.'],
+  },
+  {
+    name: 'Light',
+    build: { name: 'light', body: 0xf2ecd4, belly: 0xd9d0ae, stomach: 0xfdfbf2, gill: 0xe0b33a, eyeStyle: 'round', iris: 0xd9a441 },
+    scale: 0.96, roam: 3, home: villageHome(258, 10),
+    lines: ['Good morning! It is always morning somewhere.', 'Hope taught me to glow on the inside.', 'Dark caves are just rooms that have not met me yet.'],
+  },
+);
+
 function turnToward(heading, want, maxStep) {
   let d = want - heading;
   d = Math.atan2(Math.sin(d), Math.cos(d));

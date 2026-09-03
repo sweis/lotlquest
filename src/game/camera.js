@@ -41,6 +41,7 @@ export function createCamera(renderer, field) {
     'hud-check': { pos: new THREE.Vector3(40, 26, -190), look: new THREE.Vector3(0, 8, -60) },
   };
   let indoorBlend = 0, indoorTarget = 0;
+  let undergroundMode = false; // in the cave: terrain above is a CEILING, not a floor
 
   function update(dt, playerState) {
     const p = playerState.pos;
@@ -68,16 +69,21 @@ export function createCamera(renderer, field) {
       p.y + sp * dist + 0.6,
       p.z + Math.cos(yaw) * cp * dist,
     );
-    // keep the target above the local ground and the sea
-    const gDes = Math.max(field.heightAt(desired.x, desired.z) + 0.5, WORLD.seaLevel + 0.4);
-    if (desired.y < gDes) desired.y = gDes;
-
-    const k = 1 - Math.exp(-8 * dt);
-    cam.position.lerp(desired, k);
-    // the lerp path can still dip into a slope mid-flight — hard-clamp the
-    // ACTUAL camera position against the terrain every frame
-    const gNow = Math.max(field.heightAt(cam.position.x, cam.position.z) + 0.45, WORLD.seaLevel + 0.35);
-    if (cam.position.y < gNow) cam.position.y = gNow;
+    if (undergroundMode) {
+      // in the cave: stay just above the PLAYER's floor; never snap to the
+      // mountain surface overhead
+      const pg = field.heightAt(p.x, p.z);
+      if (desired.y < pg + 0.35) desired.y = pg + 0.35;
+      cam.position.lerp(desired, 1 - Math.exp(-8 * dt));
+      if (cam.position.y < pg + 0.3) cam.position.y = pg + 0.3;
+    } else {
+      // above ground: never below the terrain or the sea, target OR actual
+      const gDes = Math.max(field.heightAt(desired.x, desired.z) + 0.5, WORLD.seaLevel + 0.4);
+      if (desired.y < gDes) desired.y = gDes;
+      cam.position.lerp(desired, 1 - Math.exp(-8 * dt));
+      const gNow = Math.max(field.heightAt(cam.position.x, cam.position.z) + 0.45, WORLD.seaLevel + 0.35);
+      if (cam.position.y < gNow) cam.position.y = gNow;
+    }
     lookTarget.lerp(new THREE.Vector3(p.x, p.y + 0.75, p.z), 1 - Math.exp(-12 * dt));
     cam.lookAt(lookTarget);
   }
@@ -110,6 +116,7 @@ export function createCamera(renderer, field) {
   }
 
   function setIndoor(on) { indoorTarget = on ? 1 : 0; }
+  function setUnderground(on) { undergroundMode = on; }
 
-  return { cam, orbit, update, setMode, snapBehind, moveYaw, setIndoor, get mode() { return mode; } };
+  return { cam, orbit, update, setMode, snapBehind, moveYaw, setIndoor, setUnderground, get mode() { return mode; } };
 }
