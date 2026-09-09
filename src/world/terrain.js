@@ -100,39 +100,34 @@ export function makeHeightField(seed) {
   }
   WORLD.hunt = { x: hunt.x, z: hunt.z };
 
-  // Moxolotl Cave: the most ENCLOSED valley pocket in the mountain core —
-  // low ground ringed by high ground (the inside of the U)
-  let cave = { x: 0, z: 80, score: -Infinity, dirX: 0, dirZ: 1 };
-  for (let cx = -110; cx <= 110; cx += 6) {
-    for (let cz = -110; cz <= 110; cz += 6) {
-      const own = rawHeightAt(cx, cz);
-      if (own < 6 || own > 16) continue;
-      if (Math.hypot(cx - vSite.x, cz - vSite.z) < 60) continue;
-      if (Math.hypot(cx - hill.x, cz - hill.z) < 25) continue;
-      let ring = 0; let hi = { h: -Infinity, x: cx, z: cz + 26 };
-      for (let k = 0; k < 8; k++) {
-        const sx = cx + Math.sin(k * 0.785) * 26, sz = cz + Math.cos(k * 0.785) * 26;
-        const h = rawHeightAt(sx, sz);
-        ring += h / 8;
-        if (h > hi.h) hi = { h, x: sx, z: sz };
-      }
-      const score = ring - own;
-      if (score > cave.score) {
-        const dl = Math.hypot(hi.x - cx, hi.z - cz) || 1;
-        cave = { x: cx, z: cz, score, dirX: (hi.x - cx) / dl, dirZ: (hi.z - cz) / dl };
-      }
-    }
+  // Moxolotl Cave: right beside the village — the first bearing with dry
+  // land that clears the stall arc (30–90°), the armory (272°), the hill and
+  // the hunt trailhead. A short stroll from the square, per the mayor.
+  let caveSpot = null;
+  for (const deg of [20, 320, 171, 255, 210]) {
+    const a = (deg / 180) * Math.PI;
+    const x = vSite.x + Math.sin(a) * 50, z = vSite.z + Math.cos(a) * 50;
+    if (rawHeightAt(x, z) < WORLD.seaLevel + 1.0) continue;
+    if (Math.hypot(x - hill.x, z - hill.z) < 30) continue;
+    if (Math.hypot(x - hunt.x, z - hunt.z) < 34) continue;
+    caveSpot = { x, z };
+    break;
   }
+  if (!caveSpot) caveSpot = { x: vSite.x + 50, z: vSite.z };
   WORLD.cave = {
-    x: cave.x, z: cave.z, dirX: cave.dirX, dirZ: cave.dirZ,
-    r: 11, h: Math.max(rawHeightAt(cave.x, cave.z), WORLD.seaLevel + 1.5),
+    x: caveSpot.x, z: caveSpot.z,
+    r: 11, h: Math.max(rawHeightAt(caveSpot.x, caveSpot.z), WORLD.seaLevel + 1.5),
   };
-  { // the pocket is enclosed by design — carve a guaranteed walkable approach
-    // corridor from the cave door toward the village
-    const dvx = vSite.x - cave.x, dvz = vSite.z - cave.z;
+  { // ramped corridor from the door toward the village edge, so the walk in
+    // is always gentle. The endpoint height must match heightAt's village
+    // blend or the corridor ends on a seam.
+    const dvx = vSite.x - caveSpot.x, dvz = vSite.z - caveSpot.z;
     const dl = Math.hypot(dvx, dvz) || 1;
-    const ex = cave.x + (dvx / dl) * 40, ez = cave.z + (dvz / dl) * 40;
-    WORLD.cave.approach = { ex, ez, eh: rawHeightAt(ex, ez) };
+    const ex = caveSpot.x + (dvx / dl) * 24, ez = caveSpot.z + (dvz / dl) * 24;
+    const dv = Math.hypot(ex - vSite.x, ez - vSite.z);
+    const eh = lerp(villageH, rawHeightAt(ex, ez),
+      smoothstep(WORLD.village.r * 0.55, WORLD.village.r * 1.2, dv));
+    WORLD.cave.approach = { ex, ez, eh };
   }
 
   // keep trees/rocks out of the built-up spots

@@ -295,6 +295,34 @@ ROSTER.push(
   },
 );
 
+// The Moxolotl — the giant who sleeps in the cave. Pink, red-eyed, ancient,
+// and (probably) friendly. Stays deep in the chamber, away from the door.
+ROSTER.push({
+  name: 'The Moxolotl',
+  build: {
+    gillStyle: 'frilly', name: 'moxolotl', body: 0xe87ea1, belly: 0xd06a8c,
+    stomach: 0xf6cddd, gill: 0xc23a5f, eyeStyle: 'round', iris: 0xd41f2e,
+  },
+  scale: 2.6,
+  roam: 1.4, // barely stirs
+  obstacleR: 1.3,
+  home: (V, lm) => {
+    const c = lm.find((l) => l.name === 'Moxolotl Cave');
+    if (!c) return { x: V.x, z: V.z + 8 };
+    const d = Math.hypot(c.x - V.x, c.z - V.z) || 1;
+    // the door faces the village, so "deep in the chamber" is the far side
+    return { x: c.x + ((c.x - V.x) / d) * 3.4, z: c.z + ((c.z - V.z) / d) * 3.4 };
+  },
+  lines: [
+    'Ohhh. A small one. Few find my door. Fewer knock.',
+    'I am the Moxolotl. I have dreamed here since before the village had a name.',
+    'The olms were my kin once. The red in their eyes is not their own.',
+    'Dark forest. Burning sand. Singing crystal. Frozen keep. Four shadows, one source.',
+    'Hope wears my sister\'s circlet. Tell her the mountain remembers.',
+    'Bring courage, little Coal. And maybe a snack. Four hundred years is a long fast.',
+  ],
+});
+
 function turnToward(heading, want, maxStep) {
   let d = want - heading;
   d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -317,7 +345,9 @@ export function createNPCs(field, scene, landmarks, stalls = [], obstacles = [])
       name: def.name, lines: def.lines, lineIndex: 0, roam: def.roam ?? 4,
       ax, home, heading: Math.random() * Math.PI * 2,
       target: null, wait: 2 + Math.random() * 6,
-      obstacle: { x: home.x, z: home.z, r: 0.55 },
+      // villagers are "soft": the player walks through, and they scoot aside.
+      // Big NPCs (the Moxolotl) stay solid.
+      obstacle: { x: home.x, z: home.z, r: def.obstacleR ?? 0.55, soft: (def.obstacleR ?? 0.55) <= 0.8 },
     });
   });
 
@@ -327,6 +357,14 @@ export function createNPCs(field, scene, landmarks, stalls = [], obstacles = [])
       const dPlayer = Math.hypot(player.pos.x - p.x, player.pos.z - p.z);
       let speed = 0;
 
+      if (dPlayer < 1.15 && n.obstacle.soft) {
+        // Coal is pushing past — step out of his way (never into the sea)
+        const ax = (p.x - player.pos.x) / (dPlayer || 1), az = (p.z - player.pos.z) / (dPlayer || 1);
+        const push = Math.min(2.6 * dt, 1.15 - dPlayer);
+        const nx = p.x + ax * push, nz = p.z + az * push;
+        if (ground(nx, nz) > WORLD.seaLevel + 0.3) { p.x = nx; p.z = nz; }
+        n.target = null;
+      }
       if (dPlayer < 3.6) {
         // greet: stop and face Coal
         const want = Math.atan2(player.pos.x - p.x, player.pos.z - p.z);

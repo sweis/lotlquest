@@ -120,6 +120,7 @@ export function createController(initialField, playerRoot, obstacles = []) {
           !(field.isDry && field.isDry(tx, tz))) return true; // cave floors are dry
       for (let i = 0; i < obstacles.length; i++) { // buildings, rocks, trunks
         const o = obstacles[i];
+        if (o.soft) continue; // villagers yield — they sidestep instead of blocking
         const dx = tx - o.x, dz = tz - o.z;
         if (dx * dx + dz * dz < o.r * o.r) {
           // already inside (teleport/regen overlap)? then it can't trap us —

@@ -86,7 +86,7 @@ function house(rng, own = false) {
   // floor, a straight stair ramp along the right wall. Coal's own house also
   // gets a weapon display rack and a potion-maker cauldron.
   const g = new THREE.Group();
-  const w = (own ? 6.4 : 5.6) + rng() * 0.8, d = (own ? 5.6 : 5.0) + rng() * 0.6;
+  const w = (own ? 7.2 : 6.2) + rng() * 0.8, d = (own ? 6.2 : 5.6) + rng() * 0.6;
   const h = 4.9; // two floors
   const wallMat = MAT.plaster[(rng() * MAT.plaster.length) | 0].clone();
   const roofMat = MAT.roof[(rng() * MAT.roof.length) | 0].clone();
@@ -103,10 +103,14 @@ function house(rng, own = false) {
   mesh(new THREE.BoxGeometry(doorW, h - doorH, T), wallMat, g, 0, doorH + (h - doorH) / 2, (d - T) / 2);
   const cone = mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.8, 1.7 + rng() * 0.4, 4), roofMat, g, 0, h + 0.75, 0);
   cone.rotation.y = Math.PI / 4;
-  // windows, both storeys
+  // windows, both storeys, on the front AND both side walls
   for (const wy of [1.5, 3.6]) {
     mesh(new THREE.BoxGeometry(0.55, 0.55, 0.08), MAT.window, g, -w * 0.30, wy, (d - T) / 2 + 0.06);
     mesh(new THREE.BoxGeometry(0.55, 0.55, 0.08), MAT.window, g, w * 0.30, wy, (d - T) / 2 + 0.06);
+    for (const side of [-1, 1]) {
+      mesh(new THREE.BoxGeometry(0.08, 0.55, 0.55), MAT.window, g, side * ((w - T) / 2 + 0.06), wy, -d * 0.22);
+      mesh(new THREE.BoxGeometry(0.08, 0.55, 0.55), MAT.window, g, side * ((w - T) / 2 + 0.06), wy, d * 0.22);
+    }
   }
   if (own) { // Coal's door is gilded — you can't miss home
     mesh(new THREE.BoxGeometry(doorW + 0.16, 0.1, 0.1), MAT.shieldTrim, g, 0, doorH + 0.08, (d - T) / 2 + 0.04);
@@ -121,27 +125,46 @@ function house(rng, own = false) {
   const stairY = slabY + 0.08;
   const stairRun = w - 1.2, stairW = 0.95;
   const stairZ = -(d - T) / 2 + 0.55;
-  const slope = Math.atan2(slabY, stairRun);
-  const ramp = mesh(new THREE.BoxGeometry(Math.hypot(stairRun, slabY) + 0.25, 0.12, stairW), MAT.woodDark, g,
-    0, slabY / 2 - 0.02, stairZ);
-  ramp.rotation.z = slope; // rises toward +x (right-back corner)
+  // an actual staircase — eight treads climbing toward +x (right-back
+  // corner), with a handrail on the room side. The walk surface is still the
+  // smooth ramp below; the treads are what you SEE.
+  const STEPS = 8;
+  const stepD = stairRun / STEPS, stepH = slabY / STEPS;
+  for (let si = 0; si < STEPS; si++) {
+    mesh(new THREE.BoxGeometry(stepD + 0.05, stepH, stairW), MAT.woodDark, g,
+      -stairRun / 2 + stepD * (si + 0.5), stepH * (si + 0.5), stairZ);
+  }
+  const railZ = stairZ + stairW / 2 + 0.05;
+  for (let si = 1; si <= STEPS; si += 2) {
+    mesh(new THREE.BoxGeometry(0.07, 0.8, 0.07), MAT.wood, g,
+      -stairRun / 2 + stepD * si, stepH * si + 0.38, railZ);
+  }
+  const rail = mesh(new THREE.BoxGeometry(Math.hypot(stairRun, slabY) + 0.2, 0.08, 0.08), MAT.wood, g,
+    0, slabY / 2 + 0.82, railZ);
+  rail.rotation.z = Math.atan2(slabY, stairRun);
   // landing along the right wall bridging stair top → loft
   const landHL = (slabBack - stairZ) / 2 + 0.35;
   const landCZ = (slabBack + stairZ) / 2 + 0.1;
   mesh(new THREE.BoxGeometry(1.0, 0.14, landHL * 2), MAT.wood, g, w / 2 - 0.6, slabY, landCZ);
+  // guard rail along the loft's open edge (gap on the right for the landing)
+  mesh(new THREE.BoxGeometry(w - 1.4, 0.08, 0.08), MAT.wood, g, -0.5, slabY + 0.95, slabBack + 0.06);
+  for (const px of [-w / 2 + 0.35, -0.5, w / 2 - 1.35]) {
+    mesh(new THREE.BoxGeometry(0.07, 0.85, 0.07), MAT.wood, g, px, slabY + 0.5, slabBack + 0.06);
+  }
 
   // furniture: table + stools DOWNSTAIRS (open back zone), bed UPSTAIRS
-  mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.08, 10), MAT.woodDark, g, -w / 2 + 1.15, 0.74, -0.6);
-  mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.72, 6), MAT.woodDark, g, -w / 2 + 1.15, 0.37, -0.6);
-  mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.34, 8), MAT.wood, g, -w / 2 + 0.55, 0.17, 0.0);
+  mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.08, 10), MAT.woodDark, g, -w / 2 + 1.6, 0.74, -0.6);
+  mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.72, 6), MAT.woodDark, g, -w / 2 + 1.6, 0.37, -0.6);
+  mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.34, 8), MAT.wood, g, -w / 2 + 1.0, 0.17, 0.15);
   mesh(new THREE.BoxGeometry(0.9, 0.34, 1.7), MAT.wood, g, -w / 2 + 0.75, slabY + 0.26, d / 2 - 1.15);
   mesh(new THREE.BoxGeometry(0.62, 0.15, 0.48), MAT.window, g, -w / 2 + 0.75, slabY + 0.5, d / 2 - 0.6);
 
   let rack = null, brewLocal = null;
   if (own) {
-    // weapon display rack on the left wall — pieces appear as Coal buys them
+    // Coal's armoury wall — a display board plus armour stands, so every
+    // piece he owns is on show (visibility synced from combat state)
     const bx = -(w - T) / 2 + 0.16;
-    mesh(new THREE.BoxGeometry(0.1, 1.6, 2.2), MAT.woodDark, g, bx, 1.3, -0.4);
+    mesh(new THREE.BoxGeometry(0.1, 2.0, 3.0), MAT.woodDark, g, bx, 1.35, -0.55);
     rack = {};
     const hang = (key, builder, y, z) => {
       const item = builder();
@@ -157,19 +180,54 @@ function house(rng, own = false) {
       grp.add(blade, grip);
       return grp;
     };
-    hang('sword1', () => swordMesh(new THREE.MeshStandardMaterial({ color: 0x9a7648, roughness: 0.8 })), 1.7, -1.1);
-    hang('sword2', () => swordMesh(MAT.metal), 1.7, -0.4);
+    const woodTone = new THREE.MeshStandardMaterial({ color: 0x9a7648, roughness: 0.8 });
+    hang('sword1', () => swordMesh(woodTone), 1.9, -1.85);
+    hang('sword2', () => swordMesh(MAT.metal), 1.9, -1.2);
+    hang('whip1', () => { // coiled whip on a peg
+      const grp = new THREE.Group();
+      const coil = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.035, 8, 18),
+        new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 0.85 }));
+      coil.rotation.y = Math.PI / 2;
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.24, 6), MAT.woodDark);
+      grip.position.y = -0.26;
+      grp.add(coil, grip);
+      return grp;
+    }, 1.9, -0.5);
     hang('bow1', () => {
       const grp = new THREE.Group();
-      const arc = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.025, 6, 14, Math.PI * 1.1),
-        new THREE.MeshStandardMaterial({ color: 0x9a7648, roughness: 0.8 }));
+      const arc = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.025, 6, 14, Math.PI * 1.1), woodTone);
       arc.rotation.y = Math.PI / 2; arc.rotation.z = -Math.PI * 0.55;
       grp.add(arc);
       return grp;
-    }, 1.6, 0.3);
-    hang('shell1', () => new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 8, 0, Math.PI),
-      new THREE.MeshStandardMaterial({ color: 0x6fa053, roughness: 0.7 })), 0.85, -1.1);
-    hang('shell2', () => new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 8, 0, Math.PI), MAT.metal), 0.85, -0.4);
+    }, 1.15, -1.75);
+    hang('bow2', () => { // crossbow: stock + horizontal prod
+      const grp = new THREE.Group();
+      const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.42, 0.09), MAT.woodDark);
+      const prod = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.022, 6, 12, Math.PI), MAT.metal);
+      prod.rotation.x = Math.PI / 2; prod.rotation.z = Math.PI / 2; prod.position.y = 0.14;
+      grp.add(stock, prod);
+      return grp;
+    }, 1.15, -0.95);
+    // armour stands: little wooden mannequins wearing each shell
+    const stand = (key, shellMat, z) => {
+      const grp = new THREE.Group();
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 1.0, 8), MAT.woodDark);
+      post.position.y = 0.5;
+      const arms = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.6), MAT.woodDark);
+      arms.position.y = 0.92;
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), MAT.wood);
+      head.position.y = 1.08;
+      const shell = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 10), shellMat);
+      shell.scale.set(0.5, 1.05, 0.8); // domed chest-plate, reads from any angle
+      shell.position.set(0.14, 0.8, 0);
+      grp.add(post, arms, head, shell);
+      grp.position.set(bx + 0.5, 0.14, z);
+      grp.visible = false;
+      g.add(grp);
+      rack[key] = grp;
+    };
+    stand('shell1', new THREE.MeshStandardMaterial({ color: 0x6fa053, roughness: 0.7 }), 0.35);
+    stand('shell2', MAT.metal, 1.25);
     for (const k of Object.keys(rack)) rack[k].traverse((o) => { o.castShadow = true; });
 
     // potion maker: a cauldron in the front-right corner (click it to brew)
@@ -438,7 +496,7 @@ export function buildVillage(field, seed) {
   let houses = 0;
   for (const deg of [115, 150, 192, 232, 305, 5]) {
     const a = (deg / 180) * Math.PI + (rng() - 0.5) * 0.12;
-    const r = 17.5 + rng() * 3.5;
+    const r = 19.5 + rng() * 3.5; // pushed out — the houses grew
     place(house(rng), V.x + Math.sin(a) * r, V.z + Math.cos(a) * r);
     houses++;
   }
@@ -454,7 +512,7 @@ export function buildVillage(field, seed) {
   let rack = null, brewStand = null, ownHousePos = null;
   {
     const a = (335 / 180) * Math.PI;
-    const x = V.x + Math.sin(a) * 16, z = V.z + Math.cos(a) * 16;
+    const x = V.x + Math.sin(a) * 18, z = V.z + Math.cos(a) * 18;
     const own = house(rng, true);
     place(own, x, z);
     rack = own.rack;

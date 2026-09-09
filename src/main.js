@@ -200,7 +200,9 @@ function updateHUD() {
   if (village && village.rack) {
     village.rack.sword1.visible = combat.state.melee >= 1;
     village.rack.sword2.visible = combat.state.melee >= 2;
+    village.rack.whip1.visible = combat.state.melee >= 3;
     village.rack.bow1.visible = combat.state.bow >= 1;
+    village.rack.bow2.visible = combat.state.bow >= 2;
     village.rack.shell1.visible = combat.state.shell >= 1;
     village.rack.shell2.visible = combat.state.shell >= 2;
   }
