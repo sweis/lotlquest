@@ -194,7 +194,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
   function onKill(s) {
     state.kills++;
     const bonus = state.buffs.luck > 0 ? 2 : 0; // Lucky Fizz
-    dropTokens(s.mesh.position.x, s.mesh.position.z, 1 + ((Math.random() * 3) | 0) + bonus);
+    dropTokens(s.mesh.position.x, s.mesh.position.z, (s.reward ?? 1) + ((Math.random() * 3) | 0) + bonus);
     onChange();
   }
 

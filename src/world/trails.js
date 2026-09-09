@@ -116,6 +116,10 @@ export function buildTrails(field, terrainMesh) {
     [V, WORLD.hunt],
     [V, shore],
     [V, WORLD.cave], // the approach corridor makes this routable
+    ...(WORLD.realms ? [
+      [V, WORLD.realms.forest], [V, WORLD.realms.desert],
+      [V, WORLD.realms.ice], [V, WORLD.realms.crystal],
+    ] : []),
   ];
   const paths = [];
   for (const [a, b] of pairs) {

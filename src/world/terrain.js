@@ -130,12 +130,64 @@ export function makeHeightField(seed) {
     WORLD.cave.approach = { ex, ez, eh };
   }
 
+  // ---- the far realms: four evil corners, spread by bearing window --------
+  // (the village faces the island centre from the south, bearing ~180, so
+  // the realms take the other quarters). Two passes: strict height band,
+  // then any dry land, so every seed gets all four.
+  function realmSite(degLo, degHi, hLo, hHi, avoid) {
+    let best = null;
+    for (let pass = 0; pass < 2 && !best; pass++) {
+      const lo = pass ? WORLD.seaLevel + 1.5 : hLo, hi = pass ? 30 : hHi;
+      for (let deg = degLo; deg <= degHi; deg += 4) {
+        const a = (deg / 180) * Math.PI;
+        for (let rad = 110; rad <= 235; rad += 7) {
+          const x = Math.sin(a) * rad, z = Math.cos(a) * rad;
+          const h = rawHeightAt(x, z);
+          if (h < lo || h > hi) continue;
+          if (Math.hypot(x - vSite.x, z - vSite.z) < 85) continue;
+          if (Math.hypot(x - hunt.x, z - hunt.z) < 45) continue;
+          if (Math.hypot(x - hill.x, z - hill.z) < 40) continue;
+          if (avoid.some((p) => Math.hypot(x - p.x, z - p.z) < 80)) continue;
+          const spread = Math.max(
+            Math.abs(rawHeightAt(x + 12, z) - h), Math.abs(rawHeightAt(x - 12, z) - h),
+            Math.abs(rawHeightAt(x, z + 12) - h), Math.abs(rawHeightAt(x, z - 12) - h));
+          const score = -spread + Math.min(h - lo, hi - h) * 0.15; // flat, mid-band
+          if (!best || score > best.score) best = { x, z, score };
+        }
+      }
+    }
+    return best;
+  }
+  const picked = [];
+  const pick = (lo, hi, hLo, hHi, fx, fz) => {
+    const s = realmSite(lo, hi, hLo, hHi, picked) ?? { x: fx, z: fz };
+    picked.push(s);
+    return s;
+  };
+  const fSite = pick(30, 100, 4, 14, 120, 60);     // dark forest: NE lowland
+  const dSite = pick(102, 148, 3.5, 9, 150, -40);  // desert: SE flats
+  const iSite = pick(212, 280, 10, 26, -150, -40); // ice castle: SW heights
+  const cSite = pick(282, 350, 6, 18, -100, 110);  // crystal cave: NW slopes
+  WORLD.realms = {
+    forest: { x: fSite.x, z: fSite.z, r: 34 },
+    desert: { x: dSite.x, z: dSite.z, r: 36 },
+    ice: { x: iSite.x, z: iSite.z, r: 30 },
+    crystal: { x: cSite.x, z: cSite.z, r: 14 },
+  };
+  // level pads under the built structures (crystal cave ring, ice castle)
+  WORLD.pads = [
+    { x: cSite.x, z: cSite.z, r: 11, h: Math.max(rawHeightAt(cSite.x, cSite.z), WORLD.seaLevel + 1.5) },
+    { x: iSite.x, z: iSite.z, r: 16, h: Math.max(rawHeightAt(iSite.x, iSite.z), WORLD.seaLevel + 1.5) },
+  ];
+
   // keep trees/rocks out of the built-up spots
   WORLD.landmarkExclusions = [
     { x: WORLD.village.x, z: WORLD.village.z, r: WORLD.village.r + 6 },
     { x: WORLD.hill.x, z: WORLD.hill.z, r: 9 },
     { x: WORLD.hunt.x, z: WORLD.hunt.z, r: 10 },
     { x: WORLD.cave.x, z: WORLD.cave.z, r: 13 },
+    { x: cSite.x, z: cSite.z, r: 14 },
+    { x: iSite.x, z: iSite.z, r: 19 },
   ];
 
   function heightAt(x, z) {
@@ -159,6 +211,11 @@ export function makeHeightField(seed) {
         const lat = Math.hypot(x - (WORLD.cave.x + vx * t), z - (WORLD.cave.z + vz * t));
         h = lerp(lerp(WORLD.cave.h, A.eh, t), h, smoothstep(3.5, 8.5, lat));
       }
+    }
+    // level pads for realm structures
+    for (const p of WORLD.pads ?? []) {
+      const dp = Math.hypot(x - p.x, z - p.z);
+      if (dp < p.r * 1.25) h = lerp(p.h, h, smoothstep(p.r * 0.55, p.r * 1.25, dp));
     }
     return h;
   }
@@ -210,6 +267,8 @@ const COL = {
   grassB: new THREE.Color(0x93b158), // macro tint second frequency
   rock:  new THREE.Color(0x87837b),
   snow:  new THREE.Color(0xe8ecee),
+  dune:  new THREE.Color(0xd7b06a), // desert realm
+  moss:  new THREE.Color(0x2e4429), // dark-forest realm floor
 };
 
 export function buildTerrainMesh(field, segments = WORLD.size / 2) {
@@ -259,6 +318,15 @@ export function buildTerrainMesh(field, segments = WORLD.size / 2) {
     c.lerp(COL.sand, smoothstep(3.2, 2.5, y));            // beaches near sea level
     c.lerp(COL.rock, smoothstep(0.18, 0.42, slope));      // steep faces
     c.lerp(COL.snow, smoothstep(27, 33, y) * (1 - smoothstep(0.35, 0.6, slope)));
+    const R = WORLD.realms;
+    if (R) { // the far realms recolour their ground
+      const dD = Math.hypot(x - R.desert.x, z - R.desert.z);
+      c.lerp(COL.dune, (1 - smoothstep(R.desert.r * 0.75, R.desert.r * 1.3, dD)) * 0.9);
+      const dI = Math.hypot(x - R.ice.x, z - R.ice.z);
+      c.lerp(COL.snow, (1 - smoothstep(R.ice.r * 0.75, R.ice.r * 1.35, dI)) * 0.95);
+      const dF = Math.hypot(x - R.forest.x, z - R.forest.z);
+      c.lerp(COL.moss, (1 - smoothstep(R.forest.r * 0.65, R.forest.r * 1.25, dF)) * 0.7);
+    }
     colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));

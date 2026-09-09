@@ -82,6 +82,11 @@ export function buildVegetation(field, seed) {
     Math.hypot(x - WORLD.spawn.x, z - WORLD.spawn.z) < WORLD.spawnFlatR * 0.9 ||
     (WORLD.trails ?? []).some((path) => path.some((p) => Math.hypot(x - p.x, z - p.z) < 2.2));
 
+  const RL = WORLD.realms;
+  const inRealm = (x, z, k, mul = 1) => !!RL && Math.hypot(x - RL[k].x, z - RL[k].z) < RL[k].r * mul;
+  // deserts and ice fields grow no green things
+  const barren = (x, z) => inRealm(x, z, 'desert', 1.1) || inRealm(x, z, 'ice', 1.1);
+
   const slopeAt = (x, z, h) =>
     Math.abs(ground(x + 2, z) - h) + Math.abs(ground(x, z + 2) - h);
 
@@ -101,7 +106,7 @@ export function buildVegetation(field, seed) {
   // --- placements ---------------------------------------------------------
   const trees = scatter(240, 9000, (x, z, h) => {
     if (h < WORLD.seaLevel + 1.4 || h > 15) return null;
-    if (slopeAt(x, z, h) > 1.6 || excluded(x, z)) return null;
+    if (slopeAt(x, z, h) > 1.6 || excluded(x, z) || barren(x, z)) return null;
     const grove = fbm(x * 0.02 + 900, z * 0.02 + 900, 3, seed + 5);
     if (grove < 0.52 && rng() > 0.12) return null;
     return { x, z, h, s: 0.75 + rng() * 0.8, r: rng() * Math.PI * 2, tint: rng() };
@@ -109,7 +114,7 @@ export function buildVegetation(field, seed) {
 
   const pines = scatter(140, 9000, (x, z, h) => {
     if (h < 8 || h > 24) return null;                 // highlands
-    if (slopeAt(x, z, h) > 2.0 || excluded(x, z)) return null;
+    if (slopeAt(x, z, h) > 2.0 || excluded(x, z) || barren(x, z)) return null;
     const band = fbm(x * 0.017 + 300, z * 0.017 + 300, 3, seed + 77);
     if (band < 0.5 && rng() > 0.2) return null;
     return { x, z, h, s: 0.8 + rng() * 0.7, r: rng() * Math.PI * 2, tint: rng() };
@@ -117,19 +122,19 @@ export function buildVegetation(field, seed) {
 
   const bushes = scatter(170, 7000, (x, z, h) => {
     if (h < WORLD.seaLevel + 1.0 || h > 18) return null;
-    if (slopeAt(x, z, h) > 1.8 || excluded(x, z)) return null;
+    if (slopeAt(x, z, h) > 1.8 || excluded(x, z) || barren(x, z)) return null;
     return { x, z, h, s: 0.5 + rng() * 0.7, r: rng() * Math.PI * 2, tint: rng() };
   });
 
   const shrubs = scatter(120, 7000, (x, z, h) => {
     if (h < WORLD.seaLevel + 0.4 || h > 8) return null; // dry coastal band
-    if (excluded(x, z)) return null;
+    if (excluded(x, z) || barren(x, z)) return null;
     return { x, z, h, s: 0.4 + rng() * 0.5, r: rng() * Math.PI * 2 };
   });
 
   const flowers = scatter(340, 9000, (x, z, h) => {
     if (h < 3 || h > 13) return null;
-    if (slopeAt(x, z, h) > 1.2 || excluded(x, z)) return null;
+    if (slopeAt(x, z, h) > 1.2 || excluded(x, z) || barren(x, z)) return null;
     const meadow = fbm(x * 0.03 + 1500, z * 0.03 + 1500, 3, seed + 33);
     if (meadow < 0.58) return null;
     return { x, z, h, s: 0.8 + rng() * 0.5, tint: rng() };
@@ -137,7 +142,7 @@ export function buildVegetation(field, seed) {
 
   const blades = scatter(5200, 26000, (x, z, h) => { // grass tufts
     if (h < WORLD.seaLevel + 1.2 || h > 16) return null;
-    if (slopeAt(x, z, h) > 1.4 || excluded(x, z)) return null;
+    if (slopeAt(x, z, h) > 1.4 || excluded(x, z) || barren(x, z)) return null;
     return { x, z, h, s: 0.7 + rng() * 0.7, r: rng() * Math.PI * 2, tint: rng() };
   });
 
@@ -145,6 +150,34 @@ export function buildVegetation(field, seed) {
     if (h < WORLD.seaLevel - 0.5 || h > 6) return null; // coastal band
     if (excluded(x, z)) return null;
     return { x, z, h, s: 0.4 + rng() * 1.3, r: rng() * Math.PI * 2 };
+  });
+
+  // realm flora sampled INSIDE each realm circle (a world-wide scatter would
+  // land too few tries in these small discs)
+  function scatterIn(key, count, pick) {
+    const R = RL?.[key];
+    if (!R) return [];
+    const out = [];
+    for (let i = 0; i < count * 16 && out.length < count; i++) {
+      const a = rng() * Math.PI * 2, rr = Math.sqrt(rng()) * R.r * 0.95;
+      const x = R.x + Math.sin(a) * rr, z = R.z + Math.cos(a) * rr;
+      const h = ground(x, z);
+      const spot = pick(x, z, h);
+      if (spot) out.push(spot);
+    }
+    return out;
+  }
+  const gloomPines = scatterIn('forest', 120, (x, z, h) => { // the Dark Forest chokes with them
+    if (h < WORLD.seaLevel + 1.0 || excluded(x, z)) return null;
+    return { x, z, h, s: 0.9 + rng() * 0.9, r: rng() * Math.PI * 2, tint: rng() };
+  });
+  const cacti = scatterIn('desert', 40, (x, z, h) => {
+    if (h < WORLD.seaLevel + 1.0 || excluded(x, z)) return null;
+    return { x, z, h, s: 0.7 + rng() * 0.8, r: rng() * Math.PI * 2 };
+  });
+  const frostRocks = scatterIn('ice', 34, (x, z, h) => {
+    if (h < WORLD.seaLevel + 0.5 || excluded(x, z)) return null;
+    return { x, z, h, s: 0.6 + rng() * 1.4, r: rng() * Math.PI * 2 };
   });
 
   // --- geometry ------------------------------------------------------------
@@ -285,15 +318,41 @@ export function buildVegetation(field, seed) {
 
   fill(new THREE.InstancedMesh(rockGeo, rockMat, rocks.length), rocks, { sink: 0.1 });
 
+  // --- realm flora ---------------------------------------------------------
+  // gloom pines: same silhouettes, near-black needles
+  fill(new THREE.InstancedMesh(pineTrunkGeo, trunkMat, gloomPines.length), gloomPines);
+  fill(new THREE.InstancedMesh(pineLowGeo, pineMat, gloomPines.length), gloomPines,
+    { color: (t, c) => c.setHSL(0.31, 0.2, 0.09 + t.tint * 0.05) });
+  fill(new THREE.InstancedMesh(pineTopGeo, pineMat, gloomPines.length), gloomPines,
+    { color: (t, c) => c.setHSL(0.32, 0.22, 0.11 + t.tint * 0.05) });
+  // cacti: a barrel body with two upturned arms
+  const cactusMat = new THREE.MeshStandardMaterial({ color: 0x4f7f3f, roughness: 0.85 });
+  const cactusGeo = new THREE.CylinderGeometry(0.22, 0.26, 1.5, 8);
+  cactusGeo.translate(0, 0.75, 0);
+  const armA = new THREE.CylinderGeometry(0.11, 0.12, 0.6, 6);
+  armA.rotateZ(0.55); armA.translate(0.36, 0.95, 0);
+  const armB = new THREE.CylinderGeometry(0.1, 0.11, 0.5, 6);
+  armB.rotateZ(-0.55); armB.translate(-0.33, 0.75, 0);
+  fill(new THREE.InstancedMesh(cactusGeo, cactusMat, cacti.length), cacti);
+  fill(new THREE.InstancedMesh(armA, cactusMat, cacti.length), cacti);
+  fill(new THREE.InstancedMesh(armB, cactusMat, cacti.length), cacti);
+  // frost boulders: pale blue ice-slicked rocks
+  const frostMat = new THREE.MeshStandardMaterial({ color: 0xcfe4ee, roughness: 0.45 });
+  fill(new THREE.InstancedMesh(rockGeo, frostMat, frostRocks.length), frostRocks, { sink: 0.1 });
+
   group.userData.counts = {
     trees: trees.length, pines: pines.length, bushes: bushes.length,
     shrubs: shrubs.length, flowers: flowers.length, rocks: rocks.length,
+    gloomPines: gloomPines.length, cacti: cacti.length, frostRocks: frostRocks.length,
   };
   // solid things you shouldn't ghost through: rock bodies + tree/pine trunks
   group.userData.obstacles = [
     ...rocks.map((t) => ({ x: t.x, z: t.z, r: 0.75 * t.s })),
     ...trees.map((t) => ({ x: t.x, z: t.z, r: 0.34 * t.s })),
     ...pines.map((t) => ({ x: t.x, z: t.z, r: 0.26 * t.s })),
+    ...gloomPines.map((t) => ({ x: t.x, z: t.z, r: 0.26 * t.s })),
+    ...cacti.map((t) => ({ x: t.x, z: t.z, r: 0.4 * t.s })),
+    ...frostRocks.map((t) => ({ x: t.x, z: t.z, r: 0.75 * t.s })),
   ];
   return group;
 }

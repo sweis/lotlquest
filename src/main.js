@@ -9,6 +9,7 @@ import { buildVillage } from './world/village.js';
 import { buildTrails } from './world/trails.js';
 import { buildMonsters } from './world/monsters.js';
 import { buildCave } from './world/cave.js';
+import { buildRealms } from './world/regions.js';
 import { buildPickups } from './world/pickups.js';
 import { createNPCs } from './world/npcs.js';
 import { createDialog } from './game/dialog.js';
@@ -52,7 +53,7 @@ document.getElementById('ctxlost').addEventListener('pointerdown', () => locatio
 const scene = new THREE.Scene();
 
 // ---------------------------------------------------------------- world
-let field, terrain, vegetation, village, monsters, npcs, cave, pickups, peakSpot;
+let field, terrain, vegetation, village, monsters, npcs, cave, realms, pickups, peakSpot;
 let minimap = null, combat = null;
 const OBSTACLES = []; // building colliders, refilled on world build
 const water = buildWater();
@@ -85,6 +86,7 @@ function buildWorld(newSeed) {
   if (monsters) monsters.dispose(scene);
   if (npcs) npcs.dispose(scene);
   if (cave) cave.dispose(scene);
+  if (realms) realms.dispose(scene);
   if (pickups) pickups.dispose(scene);
   field = makeHeightField(seed);
   terrain = buildTerrainMesh(field);
@@ -93,12 +95,15 @@ function buildWorld(newSeed) {
   village = buildVillage(field, seed);
   cave = buildCave(field, scene, seed);
   village.landmarks.push(cave.landmark); // toast + map dot + teleport spot
+  realms = buildRealms(field, scene, seed);
+  village.landmarks.push(...realms.landmarks);
   monsters = buildMonsters(field, seed, scene);
   pickups = buildPickups(field, seed, scene);
   npcs = createNPCs(field, scene, village.landmarks, village.stalls, OBSTACLES);
   scene.add(terrain, vegetation, village.group);
   OBSTACLES.length = 0;
-  OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles, ...cave.obstacles, ...npcs.obstacles);
+  OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles, ...cave.obstacles,
+    ...realms.obstacles, ...npcs.obstacles);
   if (gfxLow) { // fewer fine details in low mode
     const bladesMesh = vegetation.getObjectByName('grassBlades');
     if (bladesMesh) bladesMesh.visible = false;
@@ -560,9 +565,11 @@ function frame(now) {
     homeArrow.rotation.y += dt * 1.3;
     homeArrow.position.y = homeArrow.userData.baseY + Math.sin(now * 0.0028) * 0.3;
   }
-  const inCave = cave.inside(controller.state.pos.x, controller.state.pos.z);
+  const inCave = cave.inside(controller.state.pos.x, controller.state.pos.z) ||
+    realms.insideCrystal(controller.state.pos.x, controller.state.pos.z);
   camera.setIndoor(insideAnyHouse || inCave);
   cave.update(dt); // torch flicker
+  realms.update(dt); // crystal glow pulse
   saveTimer += dt;
   if (saveTimer > 6 && phase === 'playing') { saveTimer = 0; combat.save(); } // keep everything
 
