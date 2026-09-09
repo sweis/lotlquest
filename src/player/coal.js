@@ -320,10 +320,27 @@ export function buildAxolotl(opts = {}) {
     leaf: new THREE.MeshStandardMaterial({ color: 0x6fa053, roughness: 0.7 }),
   };
   let swordGroup = null, shellMesh = null;
-  function setSword(tier) { // 0 none, 1 wooden, 2 iron
+  function setSword(tier) { // 0 none, 1 wooden, 2 iron, 3 whip
     if (swordGroup) { arms[1].remove(swordGroup); swordGroup = null; }
     if (!tier) return;
     swordGroup = new THREE.Group();
+    if (tier === 3) { // the River Whip: a grip and a trailing lash
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.042, 0.22, 6), gearMats.grip);
+      const pts = [];
+      for (let i = 0; i <= 6; i++) {
+        const t = i / 6;
+        pts.push(new THREE.Vector3(Math.sin(t * 4.5) * 0.05, 0.12 + t * 0.62 - t * t * 0.3, t * 0.16));
+      }
+      const lash = new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 14, 0.02, 5),
+        new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 0.85 }));
+      swordGroup.add(grip, lash);
+      swordGroup.position.set(0, -0.17, 0.04);
+      swordGroup.rotation.x = Math.PI / 2.6;
+      swordGroup.traverse((o) => { o.castShadow = true; });
+      arms[1].add(swordGroup);
+      return;
+    }
     const bladeMat = tier === 2 ? gearMats.iron : gearMats.wood;
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.5, 0.09), bladeMat);
     blade.position.y = 0.36; blade.castShadow = true;
@@ -342,14 +359,25 @@ export function buildAxolotl(opts = {}) {
     if (bowGroup) { arms[0].remove(bowGroup); bowGroup = null; }
     if (!tier) return;
     bowGroup = new THREE.Group();
-    const arc = new THREE.Mesh(
-      new THREE.TorusGeometry(0.3, 0.022, 6, 14, Math.PI * 1.1), gearMats.wood);
-    arc.rotation.z = -Math.PI * 0.55;
-    const string = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.55, 0.008), gearMats.grip);
-    string.position.x = -0.03;
-    bowGroup.add(arc, string);
-    bowGroup.position.set(0, -0.17, 0.05);
-    bowGroup.rotation.set(0, Math.PI / 2, 0); // arc faces forward
+    if (tier >= 2) { // crossbow: a stock with a horizontal prod and string
+      const stock = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.07, 0.5), gearMats.grip);
+      const prod = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.017, 6, 12, Math.PI), gearMats.iron);
+      prod.rotation.x = Math.PI / 2; prod.rotation.z = Math.PI;
+      prod.position.z = 0.2;
+      const string = new THREE.Mesh(new THREE.BoxGeometry(0.37, 0.007, 0.007), gearMats.grip);
+      string.position.z = 0.05;
+      bowGroup.add(stock, prod, string);
+      bowGroup.position.set(0, -0.17, 0.05);
+    } else {
+      const arc = new THREE.Mesh(
+        new THREE.TorusGeometry(0.3, 0.022, 6, 14, Math.PI * 1.1), gearMats.wood);
+      arc.rotation.z = -Math.PI * 0.55;
+      const string = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.55, 0.008), gearMats.grip);
+      string.position.x = -0.03;
+      bowGroup.add(arc, string);
+      bowGroup.position.set(0, -0.17, 0.05);
+      bowGroup.rotation.set(0, Math.PI / 2, 0); // arc faces forward
+    }
     bowGroup.traverse((o) => { o.castShadow = true; });
     arms[0].add(bowGroup);
   }

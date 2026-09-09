@@ -10,7 +10,9 @@ export function createInventory(combat) {
     { id: 'bite', name: 'Bite', desc: 'Trusty chompers. Damage 1.', owned: () => true, equipped: (s) => s.weapon === 'melee' && s.equippedMelee === 0 },
     { id: 'sword1', name: 'Wooden Sword', desc: 'Damage 2.', owned: (s) => s.melee >= 1, equipped: (s) => s.weapon === 'melee' && s.equippedMelee === 1 },
     { id: 'sword2', name: 'Iron Sword', desc: 'Damage 3.', owned: (s) => s.melee >= 2, equipped: (s) => s.weapon === 'melee' && s.equippedMelee === 2 },
-    { id: 'bow1', name: 'Kelp Bow', desc: 'Arrows at range, damage 2.', owned: (s) => s.bow >= 1, equipped: (s) => s.weapon === 'bow' },
+    { id: 'whip1', name: 'River Whip', desc: 'Damage 3, slashes wide at 3m.', owned: (s) => s.melee >= 3, equipped: (s) => s.weapon === 'melee' && s.equippedMelee === 3 },
+    { id: 'bow1', name: 'Kelp Bow', desc: 'Arrows at range, damage 2.', owned: (s) => s.bow >= 1, equipped: (s) => s.weapon === 'bow' && s.bow === 1 },
+    { id: 'bow2', name: 'Crossbow', desc: 'Fast flat bolts, damage 4.', owned: (s) => s.bow >= 2, equipped: (s) => s.weapon === 'bow' && s.bow >= 2 },
   ];
 
   function render() {

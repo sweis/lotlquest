@@ -7,6 +7,7 @@ import { WORLD } from '../world/terrain.js';
 const SAVE_KEY = 'lotlquest-save-v1';
 
 export const FOOD = [
+  { id: 'food0', name: 'Apple', desc: 'Crisp and sweet. Restores 1 heart.', price: 1, heal: 2 },
   { id: 'food1', name: 'Kelp Wrap', desc: 'Crunchy and green. Restores 1 heart.', price: 2, heal: 2 },
   { id: 'food2', name: 'Berry Bowl', desc: 'Foraged from the groves. Restores 2 hearts.', price: 4, heal: 4 },
   { id: 'food3', name: 'Honey Cake', desc: 'The baker’s pride. Fully restores your hearts.', price: 8, heal: 99 },
@@ -15,7 +16,9 @@ export const FOOD = [
 export const WEAPONS = [
   { id: 'sword1', kind: 'melee', tier: 1, name: 'Wooden Sword', desc: 'A sturdy branch, axolotl-sharpened. Damage 2.', price: 5 },
   { id: 'sword2', kind: 'melee', tier: 2, name: 'Iron Sword', desc: 'Vendor-forged. Damage 3.', price: 25 },
+  { id: 'whip1', kind: 'melee', tier: 3, name: 'River Whip', desc: 'Slashes wide and far. Damage 3 at 3m.', price: 55 },
   { id: 'bow1', kind: 'bow', tier: 1, name: 'Kelp Bow', desc: 'Shoots arrows (press F, weapon 2). Damage 2 at range.', price: 15 },
+  { id: 'bow2', kind: 'bow', tier: 2, name: 'Crossbow', desc: 'Snaps bolts flat and fast. Damage 4 at range.', price: 40 },
 ];
 export const ARMOR = [
   { id: 'shell1', kind: 'shell', tier: 1, name: 'Leaf Shell', desc: 'A springy back-shell. +1 heart.', price: 8 },
@@ -99,14 +102,15 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
   }
   applyGear();
 
-  function meleeDamage() { return [1, 2, 3][state.equippedMelee]; } // bare bite = 1
+  function meleeDamage() { return [1, 2, 3, 3][state.equippedMelee]; } // bare bite = 1; the whip trades reach
 
-  // equip from the inventory: 'bite', 'sword1', 'sword2', 'bow1'
+  // equip from the inventory: 'bite', 'sword1', 'sword2', 'whip1', 'bow1', 'bow2'
   function equip(id) {
     if (id === 'bite') { state.weapon = 'melee'; state.equippedMelee = 0; }
     else if (id === 'sword1' && state.melee >= 1) { state.weapon = 'melee'; state.equippedMelee = 1; }
     else if (id === 'sword2' && state.melee >= 2) { state.weapon = 'melee'; state.equippedMelee = 2; }
-    else if (id === 'bow1' && state.bow >= 1) { state.weapon = 'bow'; }
+    else if (id === 'whip1' && state.melee >= 3) { state.weapon = 'melee'; state.equippedMelee = 3; }
+    else if ((id === 'bow1' && state.bow >= 1) || (id === 'bow2' && state.bow >= 2)) { state.weapon = 'bow'; }
     else return 'not owned';
     save(); applyGear();
     return 'ok';
@@ -141,7 +145,8 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     scene.add(m);
     // soft aim-assist: loft toward the nearest slime roughly ahead, so
     // shooting down from a perch (or across a dip) actually connects
-    let vy = 1.1;
+    const speed = state.bow >= 2 ? 22 : 16; // crossbow bolts fly flat and fast
+    let vy = state.bow >= 2 ? 0.6 : 1.1;
     if (monstersRef) {
       let best = null, bestD = 25;
       for (const s of monstersRef.slimes) {
@@ -155,12 +160,12 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
         best = s; bestD = d;
       }
       if (best) {
-        const t = bestD / 16; // flight time at arrow speed
+        const t = bestD / speed; // flight time at arrow speed
         const dy = (best.mesh.position.y + 0.38) - launchY;
         vy = dy / t + 0.5 * 3.5 * t; // gravity-compensated loft
       }
     }
-    arrows.push({ m, vx: Math.sin(h) * 16, vz: Math.cos(h) * 16, vy, t: 2.2 });
+    arrows.push({ m, vx: Math.sin(h) * speed, vz: Math.cos(h) * speed, vy, t: 2.2 });
   }
 
   let monstersRef = null;
@@ -169,26 +174,64 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
   function tryAttack() {
     if (state.attackCd > 0) return;
     if (state.weapon === 'bow' && state.bow > 0) {
-      state.attackCd = 0.85;
+      state.attackCd = state.bow >= 2 ? 0.7 : 0.85; // the crossbow recocks faster
       coal.playAttack();
       shootArrow();
       return;
     }
     state.attackCd = 0.45;
     coal.playAttack();
-    if (!monstersRef) return;
     const p = controller.state.pos, hdg = controller.state.heading;
+    // the whip slashes wider and further than a sword
+    const isWhip = state.equippedMelee >= 3;
+    const reach = isWhip ? 3.1 : 1.9, arc = isWhip ? 1.55 : 1.25;
+    spawnSlash(p, hdg, reach, arc);
+    if (!monstersRef) return;
     for (const s of monstersRef.slimes) {
       if (!s.alive) continue;
       const dx = s.mesh.position.x - p.x, dz = s.mesh.position.z - p.z;
       const d = Math.hypot(dx, dz);
-      if (d > 1.9) continue;
+      if (d > reach) continue;
       let ang = Math.atan2(dx, dz) - hdg;
       ang = Math.atan2(Math.sin(ang), Math.cos(ang));
-      if (Math.abs(ang) > 1.25) continue; // in front only
+      if (Math.abs(ang) > arc) continue; // in front only
       const res = monstersRef.hurt(s, meleeDamage(), p.x, p.z);
       if (res === 'died') onKill(s);
     }
+  }
+
+  // ---- swing flash: a fading ring sector where the swing just landed ------
+  const slashes = [];
+  function spawnSlash(p, hdg, reach, arc) {
+    // RingGeometry lives in XY with theta from +x; after rotation.x = -PI/2
+    // the mapping is world bearing h -> theta = h - PI/2 (handedness flips)
+    const geo = new THREE.RingGeometry(reach * 0.5, reach * 0.85, 18, 1,
+      hdg - Math.PI / 2 - arc, arc * 2);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xfff6e0, transparent: true, opacity: 0.65,
+      side: THREE.DoubleSide, depthWrite: false,
+    });
+    const m = new THREE.Mesh(geo, mat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(p.x, p.y + 0.55, p.z);
+    scene.add(m);
+    slashes.push({ m, t: 0.16 });
+  }
+
+  // ---- visible eating: the snack hovers at Coal's mouth and shrinks -------
+  const eats = [];
+  function eatFx(item) {
+    const col = { food0: 0xd8422e, food1: 0x3f7d3a, food2: 0x8a4a8f, food3: 0xd9a15a }[item.id] ?? 0xd8422e;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8),
+      new THREE.MeshStandardMaterial({ color: col, roughness: 0.6 }));
+    if (item.id === 'food0') { // apples get a little stem
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.06, 4),
+        new THREE.MeshStandardMaterial({ color: 0x5a4026, roughness: 0.9 }));
+      stem.position.y = 0.12;
+      m.add(stem);
+    }
+    scene.add(m);
+    eats.push({ m, t: 0.9 });
   }
 
   function onKill(s) {
@@ -225,6 +268,29 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     }
     coal.model.visible = state.invulnT <= 0 || Math.sin(state.invulnT * 40) > -0.2; // hurt blink
 
+    for (let i = slashes.length - 1; i >= 0; i--) { // swing flashes fade fast
+      const sl = slashes[i];
+      sl.t -= dt;
+      if (sl.t <= 0) {
+        scene.remove(sl.m); sl.m.geometry.dispose(); sl.m.material.dispose();
+        slashes.splice(i, 1);
+      } else {
+        sl.m.material.opacity = (sl.t / 0.16) * 0.65;
+      }
+    }
+    for (let i = eats.length - 1; i >= 0; i--) { // the snack rides at the mouth, shrinking in bites
+      const e = eats[i];
+      e.t -= dt;
+      const p = controller.state.pos, h = controller.state.heading;
+      e.m.position.set(p.x + Math.sin(h) * 0.3, p.y + 0.64, p.z + Math.cos(h) * 0.3);
+      const chomp = 1 + 0.18 * Math.sin(e.t * 34);
+      e.m.scale.setScalar(Math.max(0.05, (0.35 + 0.65 * (e.t / 0.9)) * chomp));
+      if (e.t <= 0) {
+        scene.remove(e.m); e.m.geometry.dispose(); e.m.material.dispose();
+        eats.splice(i, 1);
+      }
+    }
+
     for (let i = drops.length - 1; i >= 0; i--) {
       const d = drops[i];
       const g = field.groundAt(d.m.position.x, d.m.position.z);
@@ -255,7 +321,8 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
           const hDist = Math.hypot(a.m.position.x - s.mesh.position.x, a.m.position.z - s.mesh.position.z);
           const vDist = Math.abs(a.m.position.y - (s.mesh.position.y + 0.38));
           if (hDist < 0.8 && vDist < 1.1) {
-            const res = monstersRef.hurt(s, 2, a.m.position.x - a.vx * 0.1, a.m.position.z - a.vz * 0.1);
+            const res = monstersRef.hurt(s, state.bow >= 2 ? 4 : 2,
+              a.m.position.x - a.vx * 0.1, a.m.position.z - a.vz * 0.1);
             if (res === 'died') onKill(s);
             dead = true;
             break;
@@ -342,6 +409,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     if (state.tokens < item.price) return 'not enough tokens';
     state.tokens -= item.price;
     state.hp = Math.min(maxHp(), state.hp + item.heal);
+    eatFx(item); // nom nom, visibly
     save(); onChange();
     return 'ok';
   }

@@ -340,3 +340,45 @@
 - Coins to collect (spawn hook exists), then the town/market stub.
 - Touch controls; simple ambient audio; title-screen axolotl cameo.
 - Water edge treatment (shoreline foam line), grass detail scatter near the player.
+
+## 2026-09-09 — v0.17: realms, olms, the Moxolotl, weapons wave (commits 9d63ad2..)
+
+### Shipped since last log entry
+- **9d63ad2** floors got polygonOffset materials (z-fight cure survives slopes); persisted
+  low-graphics mode (localStorage `lotlquest-gfx`, toggle in Help, ~1280→792 draw calls).
+- **4cf8b63** first walkable approach corridor to the (then-mountain) cave.
+- **76b444c** the Moxolotl cave moved NEXT TO the village (50m, first clear bearing off the
+  house ring, corridor endpoint height matched to the village blend — no seam). THE MOXOLOTL
+  lives inside: 2.6× giant pink axolotl, round red eyes, frilly gills, ancient dialog seeding
+  the olm storyline. Houses grew; the loft ramp became a real staircase (8 treads + sloped
+  handrail + posts) with a loft guard rail; side windows both storeys; Coal's armoury wall
+  (board + swords + whip peg + 2 bow mounts + 2 armour-stand mannequins wearing owned
+  shells). Villager obstacles are soft — the player pushes through and they sidestep
+  (verified 13.6m walk straight through Matcha; she scooted 1.0m).
+- **b9db478** FOUR EVIL REALMS: Dark Forest (120 gloom pines + obsidian monoliths),
+  Shifting Sands (dune recolour, cacti, leaning obelisk), Ice Castle (walls/towers/gate/
+  throne on a levelled pad; gate verified walkable), Crystal Cave (rock dome + pulsing
+  emissive crystals, 3 fixed PointLights, camera pulls in). 16 EVIL OLMS (long pale
+  salamanders, glowing red eyes, whip tails, slink AI, leashed, 5hp, richer drops) share
+  the monster list so melee/arrows/minimap/respawn all just work. Trails route to realms.
+- **(this commit)** River Whip (melee 3: damage 3 at 3.1m, wide arc) + Crossbow (bow 2:
+  damage 4, fast flat bolts, faster recock) + slash-arc flash on melee swings (ring sector,
+  0.16s fade; NOTE the handedness gotcha: flat-rotated RingGeometry maps bearing h →
+  theta = h − π/2) + Apple food item + visible eating (snack rides at the mouth, shrinks
+  in chomps). HUD/inventory/shop/rack all know the new gear.
+
+### Verified (getState numbers + screenshots through the player path)
+- Cave walk-in: held W from 14m out → stopped 1.34m from the Moxolotl (his 1.3 obstacle).
+- Realm spread (seed 4242): forest 157,22 · desert 139,-62 · ice -82,-74 · crystal -90,75.
+- Ice gate entry → courtyard (dist 6.3 < 8.5); crystal interior (5.2 < 6.5) with 3 olms
+  aggroing on camera; olm melee kill (kills 0→1); whip hit from 2.6m (sword range is 1.9);
+  apple heal 3→5 hp; buy whip/crossbow ok; 36 monsters alive (20 slimes + 16 olms).
+- Boot clean each batch: no console errors; 20 programs; draw calls ~741 (low-gfx run).
+
+### Not verified
+- Crossbow bolt visuals in-flight and inventory sheet rows (logic mirrors bow1; not screenshotted).
+- Mobile pass on realms/new UI; trail-to-ice grade (A* may skip it on steep seeds — by design).
+
+### Next
+- Olm boss in the Ice Castle throne room? Quests from the Moxolotl's dialog hooks.
+- NPC instancing if phones struggle; shoreline foam; ambient audio still TBD.

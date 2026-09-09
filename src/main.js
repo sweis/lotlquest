@@ -185,7 +185,10 @@ function updateHUD() {
   }
   hpEl.innerHTML = html;
   document.getElementById('tokenCount').textContent = combat.state.tokens;
-  const wnames = { melee: ['Bite', 'Wooden Sword', 'Iron Sword'][combat.state.equippedMelee], bow: 'Kelp Bow' };
+  const wnames = {
+    melee: ['Bite', 'Wooden Sword', 'Iron Sword', 'River Whip'][combat.state.equippedMelee],
+    bow: combat.state.bow >= 2 ? 'Crossbow' : 'Kelp Bow',
+  };
   const buffNames = { speed: 'Zoom!', guard: 'Stoneskin', luck: 'Lucky' };
   const active = Object.keys(combat.state.buffs)
     .filter((k) => combat.state.buffs[k] > 0)
