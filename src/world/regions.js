@@ -166,6 +166,7 @@ export function buildRealms(field, scene, seed) {
   }
 
   // ---- Dark Forest: an obsidian monolith circle marks its heart -----------
+  let blackMarket = null;
   {
     const F = R.forest;
     for (let i = 0; i < 5; i++) {
@@ -173,6 +174,49 @@ export function buildRealms(field, scene, seed) {
       const m = mesh(new THREE.BoxGeometry(0.9, 2.6 + rng() * 1.2, 0.7), OBSIDIAN, mx, ground(mx, mz) + 1.2, mz);
       m.rotation.y = a + (rng() - 0.5) * 0.4;
       obstacles.push({ x: mx, z: mz, r: 0.8 });
+    }
+    // the Black Market: a shady stand under a violet canopy, just outside
+    // the monolith ring. Click it to browse the thousand-token stock.
+    {
+      const dv = Math.hypot(V.x - F.x, V.z - F.z) || 1;
+      const bx = F.x + ((V.x - F.x) / dv) * 8.5, bz = F.z + ((V.z - F.z) / dv) * 8.5;
+      const by = ground(bx, bz);
+      const rot = Math.atan2(V.x - bx, V.z - bz);
+      const stand = new THREE.Group();
+      const CANOPY = new THREE.MeshStandardMaterial({ color: 0x3a2450, roughness: 0.85 });
+      const cnt = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.8, 1.0), OBSIDIAN);
+      cnt.position.y = 0.6;
+      const awn = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.08, 1.6), CANOPY);
+      awn.position.set(0, 2.1, 0.1);
+      awn.rotation.x = -0.2;
+      stand.add(cnt, awn);
+      for (const [px, pz] of [[-1.05, -0.5], [1.05, -0.5], [-1.05, 0.6], [1.05, 0.6]]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.1, 6), OBSIDIAN);
+        post.position.set(px, 1.02, pz);
+        stand.add(post);
+      }
+      // a sinister little lantern (emissive only — light count stays fixed)
+      const lam = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6),
+        new THREE.MeshStandardMaterial({ color: 0xb46aff, emissive: 0x7a2ae0, emissiveIntensity: 2.2, roughness: 0.4 }));
+      lam.position.set(0.9, 1.75, 0.4);
+      stand.add(lam);
+      // wares on the counter: a dark trident head and a black shell
+      const tr = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.4, 5), OBSIDIAN);
+      tr.position.set(-0.5, 1.2, 0.1);
+      const sh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8, 0, Math.PI),
+        new THREE.MeshStandardMaterial({ color: 0x232028, roughness: 0.35 }));
+      sh.position.set(0.45, 1.1, 0.1);
+      sh.rotation.x = -Math.PI / 2;
+      stand.add(tr, sh);
+      stand.rotation.y = rot;
+      stand.position.set(bx, by, bz);
+      stand.traverse((o) => {
+        o.castShadow = true;
+        o.userData.shopMode = 'blackmarket';
+      });
+      group.add(stand);
+      obstacles.push({ x: bx, z: bz, r: 1.4 });
+      blackMarket = { x: bx, z: bz };
     }
     landmarks.push({ name: 'The Dark Forest', x: F.x, z: F.z, r: 28 });
   }
@@ -196,7 +240,7 @@ export function buildRealms(field, scene, seed) {
 
   scene.add(group);
   return {
-    group, obstacles, landmarks, update,
+    group, obstacles, landmarks, update, blackMarket,
     // the camera pulls in close inside the crystal dome, like the houses/cave
     insideCrystal: (x, z) => Math.hypot(x - R.crystal.x, z - R.crystal.z) < 6.5,
     dispose(sc) { sc.remove(group); group.traverse((o) => o.geometry && o.geometry.dispose()); },

@@ -2,11 +2,12 @@
 // stall (meals that heal) and the potion stall (timed brews). Opens when Coal
 // walks up; closes on Leave / Esc / walking away.
 
-import { WEAPONS, ARMOR, FOOD, POTIONS, RECIPES, FISH } from './combat.js';
+import { WEAPONS, ARMOR, FOOD, POTIONS, RECIPES, FISH, BLACKMARKET } from './combat.js';
 
 const MODES = {
   armory: { title: 'The Armory', items: ARMOR, kind: 'gear' },
   weapons: { title: 'Weapon Stall', items: WEAPONS, kind: 'gear' },
+  blackmarket: { title: 'The Black Market', items: BLACKMARKET, kind: 'gear' },
   market: { title: 'Food Stall', items: FOOD, kind: 'food' },
   potions: { title: 'Potion Stall', items: POTIONS, kind: 'potion' },
   brewing: { title: "Coal's Potion Maker", items: RECIPES, kind: 'brew' },

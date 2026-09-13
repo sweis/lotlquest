@@ -17,15 +17,16 @@ const ROSTER = [
     scale: 1.05,
     home: (V) => ({ x: V.x + 3.4, z: V.z + 2.6 }), // by the well
     lines: [
-      'Hmph. Slimes in the groves again. Keep that sword sharp, Coal.',
+      'Hmph. Slimes in the groves again. Keep that sword sharp, big brother.',
       'I train by the standing stones every dawn. Discipline!',
       'Eyebrows? These are FOCUS lines.',
       'The Magma Axolotl... no. Forget I said anything.',
-    
+
       "Bubbles sells fine steel, but a warrior's best weapon is breakfast.",
       'Hope says patience wins wars. I am PATIENTLY sharpening.',
-      'Storm could be a great guard if he ever left that beach.',
-      'The cave in the mountains... something old sleeps there. Stay sharp.',
+      'Storm hatched us BOTH, you know. He named me for my colour. Very creative.',
+      'Three years older and you still cannot beat me to the kelp grounds.',
+      'The cave by the village... something old lives there. Stay sharp.',
     ],
   },
   {
@@ -236,11 +237,23 @@ ROSTER.push(
   {
     name: 'Memo',
     build: { gillStyle: 'round', name: 'memo', body: 0x7fb8ad, belly: 0x5f968c, stomach: 0xd9efe9, gill: 0x4a7f76, eyeStyle: 'round', iris: 0x35635c },
-    scale: 0.94, roam: 3, home: villageHome(95, 12),
+    scale: 0.94,
+    roam: 2, // teaches at the Academy now
+    home: (V, lm) => {
+      const a = lm.find((l) => l.name === 'The Academy');
+      if (!a) return { x: V.x + 8, z: V.z + 8 };
+      const d = Math.hypot(a.x - V.x, a.z - V.z) || 1;
+      // by the school door, village side
+      return { x: a.x - ((a.x - V.x) / d) * 5.5, z: a.z - ((a.z - V.z) / d) * 5.5 };
+    },
     lines: ['I remember everything. You blinked twice since we met.', 'Note to self: kelp for dinner. Again.', 'Hope asked me to remember something important. ...It will come back to me.',
       'Bubbles owes me three arrowheads. Or I owe her. It is written somewhere.',
       "Hope told me the cave's secret once. It is EXTREMELY safe with me.",
       'Wave, Splash, Bubble, Bubbles... I keep a chart, honestly.',
+      'Welcome to the Academy! Today\'s lesson: do NOT lick the slimes.',
+      'Every hatchling learns three things here: swim, spell, and SHARE.',
+      'You were three whole years ahead of Matcha and she still beat you at spelling, Coal.',
+      'The olms sat in these desks once. Before the red eyes. I keep their chairs ready.',
     ],
   },
   {

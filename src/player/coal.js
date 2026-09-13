@@ -320,10 +320,32 @@ export function buildAxolotl(opts = {}) {
     leaf: new THREE.MeshStandardMaterial({ color: 0x6fa053, roughness: 0.7 }),
   };
   let swordGroup = null, shellMesh = null;
-  function setSword(tier) { // 0 none, 1 wooden, 2 iron, 3 whip
+  const obsidianMat = new THREE.MeshStandardMaterial({ color: 0x2a2433, roughness: 0.3, metalness: 0.4 });
+  function setSword(tier) { // 0 none, 1 wooden, 2 iron, 3 whip, 4 shadow trident
     if (swordGroup) { arms[1].remove(swordGroup); swordGroup = null; }
     if (!tier) return;
     swordGroup = new THREE.Group();
+    if (tier === 4) { // the Shadow Trident, held like Matcha's golden one
+      const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 1.0, 6), obsidianMat);
+      staff.position.y = 0.25;
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.045, 8), obsidianMat);
+      head.position.y = 0.78;
+      swordGroup.add(staff, head);
+      for (const px of [-0.09, 0, 0.09]) {
+        const prong = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.24, 5), obsidianMat);
+        prong.position.set(px, 0.92, 0);
+        swordGroup.add(prong);
+      }
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0),
+        new THREE.MeshStandardMaterial({ color: 0xb46aff, emissive: 0x6a2ad0, emissiveIntensity: 1.6, roughness: 0.3 }));
+      gem.position.y = 0.8;
+      swordGroup.add(gem);
+      swordGroup.position.set(0, -0.17, 0.04);
+      swordGroup.rotation.x = Math.PI / 2.6;
+      swordGroup.traverse((o) => { o.castShadow = true; });
+      arms[1].add(swordGroup);
+      return;
+    }
     if (tier === 3) { // the River Whip: a grip and a trailing lash
       const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.042, 0.22, 6), gearMats.grip);
       const pts = [];
@@ -360,8 +382,9 @@ export function buildAxolotl(opts = {}) {
     if (!tier) return;
     bowGroup = new THREE.Group();
     if (tier >= 2) { // crossbow: a stock with a horizontal prod and string
-      const stock = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.07, 0.5), gearMats.grip);
-      const prod = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.017, 6, 12, Math.PI), gearMats.iron);
+      const prodMat = tier >= 3 ? obsidianMat : gearMats.iron; // Night Crossbow runs dark
+      const stock = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.07, 0.5), tier >= 3 ? obsidianMat : gearMats.grip);
+      const prod = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.017, 6, 12, Math.PI), prodMat);
       prod.rotation.x = Math.PI / 2; prod.rotation.z = Math.PI;
       prod.position.z = 0.2;
       const string = new THREE.Mesh(new THREE.BoxGeometry(0.37, 0.007, 0.007), gearMats.grip);
@@ -381,12 +404,12 @@ export function buildAxolotl(opts = {}) {
     bowGroup.traverse((o) => { o.castShadow = true; });
     arms[0].add(bowGroup);
   }
-  function setShell(tier) { // 0 none, 1 leaf, 2 iron
+  function setShell(tier) { // 0 none, 1 leaf, 2 iron, 3 obsidian
     if (shellMesh) { model.remove(shellMesh); shellMesh = null; }
     if (!tier) return;
     shellMesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.265, 16, 12, 0, Math.PI), // back half-shell
-      tier === 2 ? gearMats.iron : gearMats.leaf);
+      tier >= 3 ? obsidianMat : tier === 2 ? gearMats.iron : gearMats.leaf);
     shellMesh.position.set(0, 0.53, -0.03);
     shellMesh.rotation.y = Math.PI; // opening faces forward → covers the back
     shellMesh.scale.set(1.06, 1.12, 1.0);

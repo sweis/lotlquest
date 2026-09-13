@@ -317,6 +317,71 @@ function armory() {
   return { g, r: 0, walls, fade: { mats: [wallMat, roofMat], r: Math.max(w, d) * 0.62 } };
 }
 
+function academy() {
+  // the Academy: one bright schoolroom — chalkboard, lectern, desks, a
+  // bookshelf, and a bell over the door. Memo teaches here.
+  const g = new THREE.Group();
+  const w = 9.2, d = 7.2, h = 4.4, T = 0.18, doorW = 1.5, doorH = 2.1;
+  const wallMat = MAT.plaster[0].clone();
+  const roofMat = MAT.stoneDark.clone();
+
+  mesh(new THREE.BoxGeometry(w, 0.14, d), MAT.floorWood, g, 0, 0.18, 0);
+  mesh(new THREE.BoxGeometry(w, h, T), wallMat, g, 0, h / 2, -(d - T) / 2);
+  mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, -(w - T) / 2, h / 2, 0);
+  mesh(new THREE.BoxGeometry(T, h, d), wallMat, g, (w - T) / 2, h / 2, 0);
+  const segW = (w - doorW) / 2;
+  mesh(new THREE.BoxGeometry(segW, h, T), wallMat, g, -(doorW + segW) / 2, h / 2, (d - T) / 2);
+  mesh(new THREE.BoxGeometry(segW, h, T), wallMat, g, (doorW + segW) / 2, h / 2, (d - T) / 2);
+  mesh(new THREE.BoxGeometry(doorW, h - doorH, T), wallMat, g, 0, doorH + (h - doorH) / 2, (d - T) / 2);
+  const cone = mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.78, 2.3, 4), roofMat, g, 0, h + 1.0, 0);
+  cone.rotation.y = Math.PI / 4;
+  for (const wx of [-w * 0.32, w * 0.32]) {
+    mesh(new THREE.BoxGeometry(0.6, 0.6, 0.08), MAT.window, g, wx, 2.0, (d - T) / 2 + 0.06);
+    mesh(new THREE.BoxGeometry(0.08, 0.6, 0.6), MAT.window, g, (w - T) / 2 + 0.06, 2.0, wx * 0.6);
+    mesh(new THREE.BoxGeometry(0.08, 0.6, 0.6), MAT.window, g, -(w - T) / 2 - 0.06, 2.0, wx * 0.6);
+  }
+  // the school bell on a little gable over the door
+  mesh(new THREE.BoxGeometry(0.8, 0.5, 0.16), roofMat, g, 0, h + 0.4, (d - T) / 2);
+  const bell = mesh(new THREE.SphereGeometry(0.17, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), MAT.shieldTrim, g, 0, h + 0.32, (d - T) / 2);
+  bell.rotation.x = Math.PI; // open side down
+
+  // chalkboard + chalk scribbles on the back wall
+  mesh(new THREE.BoxGeometry(3.6, 1.5, 0.08), new THREE.MeshStandardMaterial({ color: 0x274436, roughness: 0.9 }), g, 0, 1.7, -(d - T) / 2 + 0.15);
+  for (let i = 0; i < 4; i++) {
+    const line = mesh(new THREE.BoxGeometry(1.2 + (i % 2) * 0.9, 0.045, 0.02),
+      new THREE.MeshStandardMaterial({ color: 0xe8e6da, roughness: 0.8 }), g, -0.6 + (i % 2) * 0.4, 2.15 - i * 0.28, -(d - T) / 2 + 0.2);
+    line.rotation.z = (i % 2 ? -1 : 1) * 0.02;
+  }
+  // lectern
+  mesh(new THREE.BoxGeometry(0.5, 1.0, 0.4), MAT.woodDark, g, -1.6, 0.68, -(d - T) / 2 + 1.0);
+  const top = mesh(new THREE.BoxGeometry(0.6, 0.06, 0.5), MAT.wood, g, -1.6, 1.22, -(d - T) / 2 + 1.0);
+  top.rotation.x = -0.25;
+  // desks with stools, two rows facing the board
+  for (const [dx, dz] of [[-1.7, 0.4], [0.9, 0.4], [-1.7, 2.0], [0.9, 2.0]]) {
+    mesh(new THREE.BoxGeometry(1.5, 0.08, 0.6), MAT.wood, g, dx, 0.82, dz);
+    for (const lx of [-0.6, 0.6]) mesh(new THREE.BoxGeometry(0.08, 0.65, 0.5), MAT.woodDark, g, dx + lx, 0.5, dz);
+    mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.4, 8), MAT.wood, g, dx, 0.38, dz + 0.65);
+  }
+  // bookshelf on the right wall with bright book spines
+  mesh(new THREE.BoxGeometry(0.3, 2.2, 2.6), MAT.woodDark, g, (w - T) / 2 - 0.32, 1.28, -0.8);
+  const spineCols = [0xc45a5a, 0x5a7fc4, 0xc4a44a, 0x5aa06a, 0x9a6ac4];
+  for (let s = 0; s < 14; s++) {
+    const sc = new THREE.MeshStandardMaterial({ color: spineCols[s % spineCols.length], roughness: 0.8 });
+    mesh(new THREE.BoxGeometry(0.16, 0.34 + (s % 3) * 0.04, 0.14), sc, g,
+      (w - T) / 2 - 0.34, 0.6 + Math.floor(s / 5) * 0.72, -1.95 + (s % 5) * 0.46);
+  }
+
+  const bxw = (w - T) / 2, bzw = (d - T) / 2, dhw = doorW / 2 + 0.1;
+  const walls = [
+    [-bxw + 0.1, -bzw, bxw - 0.1, -bzw],
+    [-bxw, -bzw + 0.1, -bxw, bzw - 0.1],
+    [bxw, -bzw + 0.1, bxw, bzw - 0.1],
+    [-bxw + 0.05, bzw, -dhw, bzw],
+    [dhw, bzw, bxw - 0.05, bzw],
+  ];
+  return { g, r: 0, walls, fade: { mats: [wallMat, roofMat], r: Math.max(w, d) * 0.62 } };
+}
+
 function stall(i, role) {
   const g = new THREE.Group();
   for (const [px, pz] of [[-1, -0.55], [1, -0.55], [-1, 0.55], [1, 0.55]]) {
@@ -506,6 +571,15 @@ export function buildVillage(field, seed) {
     const a = (272 / 180) * Math.PI;
     const ag = place(armory(), V.x + Math.sin(a) * 21.5, V.z + Math.cos(a) * 21.5, true, 0.14);
     ag.traverse((o) => { o.userData.shopMode = 'armory'; });
+  }
+
+  // the Academy, tucked behind the market arc (click nothing — it's school)
+  let academyPos = null;
+  {
+    const a = (65 / 180) * Math.PI;
+    const x = V.x + Math.sin(a) * 24, z = V.z + Math.cos(a) * 24;
+    place(academy(), x, z, true, 0.14);
+    academyPos = { x, z };
   }
 
   // Coal's own house — gilded door, just off the square
@@ -734,6 +808,7 @@ export function buildVillage(field, seed) {
     { name: 'The Kelp Grounds', x: K.x, z: K.z, r: 14 },
     { name: 'The Hunting Point', x: P.x, z: P.z, r: 10 },
     { name: "Coal's House", x: ownHousePos.x, z: ownHousePos.z, r: 5.5 },
+    { name: 'The Academy', x: academyPos.x, z: academyPos.z, r: 7.5 },
   ];
 
   group.userData.counts = { houses, stalls: 3, kelp: kelpSpots.length, landmarks: landmarks.length };

@@ -186,8 +186,8 @@ function updateHUD() {
   hpEl.innerHTML = html;
   document.getElementById('tokenCount').textContent = combat.state.tokens;
   const wnames = {
-    melee: ['Bite', 'Wooden Sword', 'Iron Sword', 'River Whip'][combat.state.equippedMelee],
-    bow: combat.state.bow >= 2 ? 'Crossbow' : 'Kelp Bow',
+    melee: ['Bite', 'Wooden Sword', 'Iron Sword', 'River Whip', 'Shadow Trident'][combat.state.equippedMelee],
+    bow: combat.state.bow >= 3 ? 'Night Crossbow' : combat.state.bow >= 2 ? 'Crossbow' : 'Kelp Bow',
   };
   const buffNames = { speed: 'Zoom!', guard: 'Stoneskin', luck: 'Lucky' };
   const active = Object.keys(combat.state.buffs)
@@ -243,6 +243,7 @@ const SHOP_SPOTS = [
   { mode: 'potions', r: 2.7, at: () => village.stalls.find((s) => s.mode === 'potions') },
   { mode: 'brewing', r: 2.2, at: () => village.brewStand },
   { mode: 'fishsale', r: 2.6, at: () => village.fishStandPos },
+  { mode: 'blackmarket', r: 4.5, at: () => realms.blackMarket },
 ];
 
 // ------------------------------------------------------- fishing
@@ -308,7 +309,8 @@ scene.add(walkMarker);
       return;
     }
 
-    const vHits = ray.intersectObjects(village.group.children, true);
+    // village buildings + realm structures (the Black Market lives out there)
+    const vHits = ray.intersectObjects([...village.group.children, realms.group], true);
 
     // the fishing pier? cast a line if close, walk over if not
     if (vHits.length && vHits[0].object.userData.fishSpot && village.fishSpot) {

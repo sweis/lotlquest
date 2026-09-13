@@ -24,7 +24,13 @@ export const ARMOR = [
   { id: 'shell1', kind: 'shell', tier: 1, name: 'Leaf Shell', desc: 'A springy back-shell. +1 heart.', price: 8 },
   { id: 'shell2', kind: 'shell', tier: 2, name: 'Iron Shell', desc: 'Serious protection. +2 hearts.', price: 30 },
 ];
-export const CATALOG = [...WEAPONS, ...ARMOR];
+// the Black Market in the Dark Forest — a thousand tokens and up, no refunds
+export const BLACKMARKET = [
+  { id: 'shell3', kind: 'shell', tier: 3, name: 'Obsidian Shell', desc: 'Olm-forged and cold. +3 hearts.', price: 1000 },
+  { id: 'sword4', kind: 'melee', tier: 4, name: 'Shadow Trident', desc: 'Forbidden. Damage 6.', price: 1200 },
+  { id: 'bow3', kind: 'bow', tier: 3, name: 'Night Crossbow', desc: 'Bolts of dusk. Damage 7 at range.', price: 1500 },
+];
+export const CATALOG = [...WEAPONS, ...ARMOR, ...BLACKMARKET];
 export const POTIONS = [
   { id: 'pot1', name: 'Zoom Juice', desc: 'Run like a river for 45 seconds.', price: 5, buff: 'speed', dur: 45 },
   { id: 'pot2', name: 'Stoneskin Tonic', desc: 'Slimes cannot hurt you for 45 seconds.', price: 10, buff: 'guard', dur: 45 },
@@ -102,7 +108,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
   }
   applyGear();
 
-  function meleeDamage() { return [1, 2, 3, 3][state.equippedMelee]; } // bare bite = 1; the whip trades reach
+  function meleeDamage() { return [1, 2, 3, 3, 6][state.equippedMelee]; } // bare bite = 1; the whip trades reach
 
   // equip from the inventory: 'bite', 'sword1', 'sword2', 'whip1', 'bow1', 'bow2'
   function equip(id) {
@@ -110,7 +116,9 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     else if (id === 'sword1' && state.melee >= 1) { state.weapon = 'melee'; state.equippedMelee = 1; }
     else if (id === 'sword2' && state.melee >= 2) { state.weapon = 'melee'; state.equippedMelee = 2; }
     else if (id === 'whip1' && state.melee >= 3) { state.weapon = 'melee'; state.equippedMelee = 3; }
-    else if ((id === 'bow1' && state.bow >= 1) || (id === 'bow2' && state.bow >= 2)) { state.weapon = 'bow'; }
+    else if (id === 'sword4' && state.melee >= 4) { state.weapon = 'melee'; state.equippedMelee = 4; }
+    else if ((id === 'bow1' && state.bow >= 1) || (id === 'bow2' && state.bow >= 2) ||
+             (id === 'bow3' && state.bow >= 3)) { state.weapon = 'bow'; }
     else return 'not owned';
     save(); applyGear();
     return 'ok';
@@ -145,7 +153,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     scene.add(m);
     // soft aim-assist: loft toward the nearest slime roughly ahead, so
     // shooting down from a perch (or across a dip) actually connects
-    const speed = state.bow >= 2 ? 22 : 16; // crossbow bolts fly flat and fast
+    const speed = state.bow >= 3 ? 26 : state.bow >= 2 ? 22 : 16; // better bows shoot flatter, faster
     let vy = state.bow >= 2 ? 0.6 : 1.1;
     if (monstersRef) {
       let best = null, bestD = 25;
@@ -321,7 +329,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
           const hDist = Math.hypot(a.m.position.x - s.mesh.position.x, a.m.position.z - s.mesh.position.z);
           const vDist = Math.abs(a.m.position.y - (s.mesh.position.y + 0.38));
           if (hDist < 0.8 && vDist < 1.1) {
-            const res = monstersRef.hurt(s, state.bow >= 2 ? 4 : 2,
+            const res = monstersRef.hurt(s, state.bow >= 3 ? 7 : state.bow >= 2 ? 4 : 2,
               a.m.position.x - a.vx * 0.1, a.m.position.z - a.vz * 0.1);
             if (res === 'died') onKill(s);
             dead = true;

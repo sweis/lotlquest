@@ -189,6 +189,15 @@ export function makeHeightField(seed) {
     { x: cSite.x, z: cSite.z, r: 14 },
     { x: iSite.x, z: iSite.z, r: 19 },
   ];
+  { // clearing for the Black Market stand (village side of the dark forest —
+    // regions.js places it with this same formula)
+    const dl = Math.hypot(vSite.x - fSite.x, vSite.z - fSite.z) || 1;
+    WORLD.landmarkExclusions.push({
+      x: fSite.x + ((vSite.x - fSite.x) / dl) * 8.5,
+      z: fSite.z + ((vSite.z - fSite.z) / dl) * 8.5,
+      r: 5.5,
+    });
+  }
 
   function heightAt(x, z) {
     let h = rawHeightAt(x, z);
