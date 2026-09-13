@@ -60,9 +60,49 @@ const graniteTex = surfaceTex(0x6a41, (ctx, rnd) => {
     ctx.fillRect(rnd() * 128, rnd() * 128, 1 + rnd() * 2, 1 + rnd() * 2);
   }
 });
+const woodTex = surfaceTex(0x9d0d, (ctx, rnd) => {
+  for (let i = 0; i < 120; i++) { // long vertical grain streaks
+    const x = rnd() * 128, w2 = 1 + rnd() * 2, l = 30 + rnd() * 80;
+    ctx.fillStyle = rnd() > 0.4 ? 'rgba(60,42,25,0.10)' : 'rgba(255,235,205,0.08)';
+    for (const ox of [0, 128, -128]) ctx.fillRect(x + ox, rnd() * 128 - l / 2, w2, l);
+  }
+  for (let i = 0; i < 14; i++) { // knots
+    ctx.strokeStyle = 'rgba(50,35,20,0.18)';
+    ctx.beginPath();
+    ctx.ellipse(rnd() * 128, rnd() * 128, 2 + rnd() * 3, 4 + rnd() * 5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+});
+const shingleTex = surfaceTex(0x400f, (ctx, rnd) => {
+  for (let y = 0; y < 128; y += 16) { // shingle courses with offset joints
+    ctx.fillStyle = 'rgba(40,30,25,0.22)';
+    ctx.fillRect(0, y, 128, 2.2);
+    const off = (y / 16) % 2 ? 12 : 0;
+    for (let x = -24; x < 128; x += 24) {
+      ctx.fillRect(x + off + rnd() * 3, y, 1.6, 16);
+    }
+    ctx.fillStyle = 'rgba(255,245,230,0.05)';
+    ctx.fillRect(0, y + 2.2, 128, 3);
+  }
+});
+const waterTex = surfaceTex(0xaa7e, (ctx, rnd) => {
+  for (let i = 0; i < 60; i++) { // wavy caustic ripples
+    ctx.strokeStyle = rnd() > 0.35 ? 'rgba(255,255,255,0.16)' : 'rgba(20,60,90,0.14)';
+    ctx.lineWidth = 1 + rnd() * 1.4;
+    ctx.beginPath();
+    const y = rnd() * 128;
+    ctx.moveTo(-8, y);
+    for (let x = 0; x <= 136; x += 16) ctx.lineTo(x, y + Math.sin(x * 0.12 + rnd() * 6) * (3 + rnd() * 4));
+    ctx.stroke();
+  }
+});
 for (const m of MAT.plaster) m.map = stuccoTex;
 MAT.stone.map = graniteTex;
 MAT.stoneDark.map = graniteTex;
+MAT.wood.map = woodTex;
+MAT.woodDark.map = woodTex;
+for (const m of MAT.roof) { m.map = shingleTex; }
+for (const m of MAT.awning) { m.map = stuccoTex; } // soft cloth weave read
 // floors and ground decals get polygonOffset so near-coplanar crossings with
 // the terrain can never z-fight, even on sloped building sites
 MAT.floorWood = MAT.wood.clone();
@@ -415,15 +455,23 @@ function stall(i, role) {
 }
 
 function fountain() {
-  // a tiered stone fountain for the square
+  // a tiered stone fountain: a WIDE pool at the bottom, arcs of water
+  // spraying from the upper basin into it, and drifting droplet spray.
+  // Water uses an animated ripple texture (see update()).
   const g = new THREE.Group();
-  const waterMat = new THREE.MeshStandardMaterial({ color: 0x3585a8, roughness: 0.15 });
-  mesh(new THREE.CylinderGeometry(2.1, 2.3, 0.55, 18), MAT.stone, g, 0, 0.27, 0); // pool wall
-  const pool = mesh(new THREE.CylinderGeometry(1.85, 1.85, 0.08, 18), waterMat, g, 0, 0.5, 0);
+  const waterMat = new THREE.MeshStandardMaterial({
+    color: 0x4aa3c8, roughness: 0.12, map: waterTex,
+    transparent: true, opacity: 0.92,
+  });
+  const waterDeep = waterMat.clone();
+  waterDeep.color.set(0x3585a8);
+  // bottom pool: broad wall + bright animated water
+  mesh(new THREE.CylinderGeometry(2.7, 2.9, 0.5, 20), MAT.stone, g, 0, 0.25, 0);
+  const pool = mesh(new THREE.CylinderGeometry(2.45, 2.45, 0.08, 20), waterMat, g, 0, 0.46, 0);
   pool.castShadow = false;
   mesh(new THREE.CylinderGeometry(0.28, 0.36, 1.15, 10), MAT.stoneDark, g, 0, 1.05, 0); // column
   mesh(new THREE.CylinderGeometry(0.85, 0.6, 0.3, 14), MAT.stone, g, 0, 1.68, 0); // upper basin
-  const upper = mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.06, 14), waterMat, g, 0, 1.82, 0);
+  const upper = mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.06, 14), waterDeep, g, 0, 1.82, 0);
   upper.castShadow = false;
   // crowning statue: an axolotl holding a golden trident
   const statueTop = buildAxolotl({ name: 'fountainStatue', trident: 0xd4af37 });
@@ -434,16 +482,45 @@ function fountain() {
   statueTop.root.scale.setScalar(0.85);
   statueTop.root.position.set(0, 1.86, 0);
   g.add(statueTop.root);
-  // falling-water streams from the upper basin to the pool
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + 0.4;
-    const jet = mesh(new THREE.CylinderGeometry(0.045, 0.06, 1.25, 6), waterMat, g,
-      Math.sin(a) * 0.72, 1.15, Math.cos(a) * 0.72);
-    jet.castShadow = false;
-    jet.rotation.z = Math.sin(a) * 0.12;
-    jet.rotation.x = -Math.cos(a) * 0.12;
+  // six ARCS of water spraying from the upper basin out into the pool
+  const arcPts = [];
+  for (let k = 0; k <= 8; k++) {
+    const t = k / 8;
+    arcPts.push(new THREE.Vector3(0.72 + t * 1.15, 1.8 + Math.sin(t * Math.PI) * 0.42 - t * 1.34, 0));
   }
-  return { g, r: 2.35 };
+  const arcGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(arcPts), 12, 0.05, 5);
+  for (let i = 0; i < 6; i++) {
+    const jet = new THREE.Mesh(arcGeo, waterMat);
+    jet.rotation.y = (i / 6) * Math.PI * 2;
+    jet.castShadow = false;
+    g.add(jet);
+  }
+  // droplet spray riding the arcs, looping on phase
+  const dropMat = new THREE.MeshStandardMaterial({ color: 0xdff2fb, roughness: 0.2, transparent: true, opacity: 0.85 });
+  const drops = [];
+  for (let i = 0; i < 16; i++) {
+    const d = new THREE.Mesh(new THREE.SphereGeometry(0.045 + Math.random() * 0.03, 6, 5), dropMat);
+    d.castShadow = false;
+    g.add(d);
+    drops.push({ m: d, a: (i / 16) * Math.PI * 2, phase: Math.random() });
+  }
+  let t = 0;
+  function update(dt) {
+    t += dt;
+    waterTex.offset.x = (t * 0.045) % 1; // the ripples drift
+    waterTex.offset.y = (t * 0.02) % 1;
+    for (const d of drops) {
+      const ph = (d.phase + t * 0.55) % 1;
+      const r = 0.72 + ph * (1.5 + Math.sin(d.a * 3) * 0.25);
+      d.m.position.set(
+        Math.sin(d.a) * r,
+        1.85 + Math.sin(ph * Math.PI) * 0.55 - ph * 1.42,
+        Math.cos(d.a) * r,
+      );
+      d.m.material.opacity = 0.85 * (1 - ph * 0.5);
+    }
+  }
+  return { g, r: 2.95, update };
 }
 
 function statue() {
@@ -544,7 +621,9 @@ export function buildVillage(field, seed) {
   plaza.position.set(V.x, ground(V.x, V.z) + 0.07, V.z);
   plaza.receiveShadow = true;
   group.add(plaza);
-  place(fountain(), V.x, V.z);
+  const fnt = fountain();
+  place(fnt, V.x, V.z);
+  const updateVillage = (dt) => fnt.update(dt); // spray + rippling water
 
   // the fish stand at the square's south-west edge (click to sell your catch)
   let fishStandPos = null;
@@ -812,5 +891,8 @@ export function buildVillage(field, seed) {
   ];
 
   group.userData.counts = { houses, stalls: 3, kelp: kelpSpots.length, landmarks: landmarks.length };
-  return { group, obstacles, landmarks, fadeHouses, stalls, walkSurfaces, rack, brewStand, fishStandPos, fishSpot };
+  return {
+    group, obstacles, landmarks, fadeHouses, stalls, walkSurfaces, rack, brewStand,
+    fishStandPos, fishSpot, update: updateVillage,
+  };
 }

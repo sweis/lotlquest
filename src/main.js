@@ -755,6 +755,7 @@ function frame(now) {
       : null);
   cave.update(dt); // torch flicker
   realms.update(dt); // crystal glow pulse
+  village.update(dt); // fountain spray + rippling water
   saveTimer += dt;
   if (saveTimer > 6 && phase === 'playing') { saveTimer = 0; combat.save(); } // keep everything
 
