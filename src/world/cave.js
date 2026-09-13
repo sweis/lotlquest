@@ -82,7 +82,7 @@ export function buildCave(field, scene, seed) {
   // interior: dark floor, stalagmites, torches
   const floor = new THREE.Mesh(new THREE.CircleGeometry(RING_R - 0.6, 26), FLOOR);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(C.x, baseY + 0.06, C.z);
+  floor.position.set(C.x, baseY + 0.12, C.z);
   floor.receiveShadow = true;
   group.add(floor);
   for (let i = 0; i < 6; i++) {
@@ -141,7 +141,10 @@ export function buildCave(field, scene, seed) {
   const entrance = { x: C.x + Math.sin(doorDir) * (RING_R + 2), z: C.z + Math.cos(doorDir) * (RING_R + 2) };
   return {
     group, update, obstacles,
-    floorAt: () => null, // surface structure — no underground grounding
+    // stand ON the floor disc inside the ring (it sits a hair above the pad,
+    // so grounding on raw terrain clipped Coal's feet under it)
+    floorAt: (x, z) => (Math.hypot(x - C.x, z - C.z) < RING_R - 0.5
+      ? Math.max(ground(x, z), baseY + 0.14) : null),
     landmark: { name: 'Moxolotl Cave', x: C.x, z: C.z, r: 13 },
     entrance,
     chamber: { x: C.x, z: C.z, floorH: baseY },

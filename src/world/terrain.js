@@ -134,24 +134,27 @@ export function makeHeightField(seed) {
   // (the village faces the island centre from the south, bearing ~180, so
   // the realms take the other quarters). Two passes: strict height band,
   // then any dry land, so every seed gets all four.
-  function realmSite(degLo, degHi, hLo, hHi, avoid) {
+  // The village faces the island from the south (bearing ~180). The ICE
+  // CASTLE sits FAR on the north side, and the other three realms spread
+  // across the middle band IN FRONT of it — you pass them on the way.
+  function realmSite(degLo, degHi, hLo, hHi, radLo, radHi, farBias, avoid) {
     let best = null;
     for (let pass = 0; pass < 2 && !best; pass++) {
       const lo = pass ? WORLD.seaLevel + 1.5 : hLo, hi = pass ? 30 : hHi;
       for (let deg = degLo; deg <= degHi; deg += 4) {
-        const a = (deg / 180) * Math.PI;
-        for (let rad = 110; rad <= 235; rad += 7) {
+        const a = ((deg % 360) / 180) * Math.PI; // windows may wrap past 360
+        for (let rad = radLo; rad <= radHi; rad += 7) {
           const x = Math.sin(a) * rad, z = Math.cos(a) * rad;
           const h = rawHeightAt(x, z);
           if (h < lo || h > hi) continue;
           if (Math.hypot(x - vSite.x, z - vSite.z) < 85) continue;
           if (Math.hypot(x - hunt.x, z - hunt.z) < 45) continue;
           if (Math.hypot(x - hill.x, z - hill.z) < 40) continue;
-          if (avoid.some((p) => Math.hypot(x - p.x, z - p.z) < 80)) continue;
+          if (avoid.some((p) => Math.hypot(x - p.x, z - p.z) < 58)) continue;
           const spread = Math.max(
             Math.abs(rawHeightAt(x + 12, z) - h), Math.abs(rawHeightAt(x - 12, z) - h),
             Math.abs(rawHeightAt(x, z + 12) - h), Math.abs(rawHeightAt(x, z - 12) - h));
-          const score = -spread + Math.min(h - lo, hi - h) * 0.15; // flat, mid-band
+          const score = -spread + Math.min(h - lo, hi - h) * 0.15 + (farBias ? rad * 0.05 : 0);
           if (!best || score > best.score) best = { x, z, score };
         }
       }
@@ -159,15 +162,15 @@ export function makeHeightField(seed) {
     return best;
   }
   const picked = [];
-  const pick = (lo, hi, hLo, hHi, fx, fz) => {
-    const s = realmSite(lo, hi, hLo, hHi, picked) ?? { x: fx, z: fz };
+  const pick = (lo, hi, hLo, hHi, radLo, radHi, farBias, fx, fz) => {
+    const s = realmSite(lo, hi, hLo, hHi, radLo, radHi, farBias, picked) ?? { x: fx, z: fz };
     picked.push(s);
     return s;
   };
-  const fSite = pick(30, 100, 4, 14, 120, 60);     // dark forest: NE lowland
-  const dSite = pick(102, 148, 3.5, 9, 150, -40);  // desert: SE flats
-  const iSite = pick(212, 280, 10, 26, -150, -40); // ice castle: SW heights
-  const cSite = pick(282, 350, 6, 18, -100, 110);  // crystal cave: NW slopes
+  const iSite = pick(338, 382, 4, 26, 160, 245, true, 0, 200);   // ice castle: FAR north
+  const cSite = pick(332, 388, 4, 18, 70, 125, false, 0, 90);    // crystal cave: mid, on the way
+  const dSite = pick(285, 333, 3.5, 10, 70, 135, false, -110, 40); // desert: mid-west
+  const fSite = pick(27, 77, 4, 14, 70, 135, false, 110, 40);    // dark forest: mid-east
   WORLD.realms = {
     forest: { x: fSite.x, z: fSite.z, r: 34 },
     desert: { x: dSite.x, z: dSite.z, r: 36 },
@@ -177,7 +180,7 @@ export function makeHeightField(seed) {
   // level pads under the built structures (crystal cave ring, ice castle)
   WORLD.pads = [
     { x: cSite.x, z: cSite.z, r: 11, h: Math.max(rawHeightAt(cSite.x, cSite.z), WORLD.seaLevel + 1.5) },
-    { x: iSite.x, z: iSite.z, r: 16, h: Math.max(rawHeightAt(iSite.x, iSite.z), WORLD.seaLevel + 1.5) },
+    { x: iSite.x, z: iSite.z, r: 25, h: Math.max(rawHeightAt(iSite.x, iSite.z), WORLD.seaLevel + 1.5) },
   ];
 
   // keep trees/rocks out of the built-up spots
@@ -187,7 +190,7 @@ export function makeHeightField(seed) {
     { x: WORLD.hunt.x, z: WORLD.hunt.z, r: 10 },
     { x: WORLD.cave.x, z: WORLD.cave.z, r: 13 },
     { x: cSite.x, z: cSite.z, r: 14 },
-    { x: iSite.x, z: iSite.z, r: 19 },
+    { x: iSite.x, z: iSite.z, r: 28 },
   ];
   { // clearing for the Black Market stand (village side of the dark forest —
     // regions.js places it with this same formula)

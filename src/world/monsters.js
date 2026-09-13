@@ -44,7 +44,12 @@ function buildSlimeMesh() {
   return { g, body, blob };
 }
 
-function buildOlmMesh() {
+const OLM_IRON = new THREE.MeshStandardMaterial({ color: 0x3a3f47, roughness: 0.4, metalness: 0.5 });
+const OLM_GOLD = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.35, metalness: 0.6 });
+
+// weapon = 'mace' (strapped across the back) | 'flail' (spike ball on the
+// tail tip) | 'crown' (King Olm's golden crown)
+function buildOlmMesh(weapon) {
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.85, 6, 10), OLM_BODY);
   body.rotation.x = Math.PI / 2; body.position.y = 0.3; body.castShadow = true;
@@ -80,6 +85,43 @@ function buildOlmMesh() {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), OLM_EYE);
     eye.position.set(side * 0.1, 0.42, 0.86);
     g.add(eye);
+  }
+  const spikeBall = (r) => { // a dark ball bristling with spikes
+    const ball = new THREE.Group();
+    const core = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), OLM_IRON);
+    ball.add(core);
+    for (let k = 0; k < 8; k++) {
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(r * 0.28, r * 0.9, 5), OLM_IRON);
+      const a = (k / 8) * Math.PI * 2, b = (k % 2 ? 0.6 : -0.6);
+      sp.position.set(Math.cos(a) * Math.cos(b) * r, Math.sin(b) * r, Math.sin(a) * Math.cos(b) * r);
+      sp.lookAt(sp.position.clone().multiplyScalar(3));
+      sp.rotateX(Math.PI / 2);
+      ball.add(sp);
+    }
+    return ball;
+  };
+  if (weapon === 'flail') { // spike ball swinging on the tail tip
+    const ball = spikeBall(0.16);
+    ball.position.set(0, 0, -1.55);
+    tail.add(ball);
+  } else if (weapon === 'mace') { // mace strapped across the back
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.85, 6), OLM_IRON);
+    handle.rotation.z = Math.PI / 2; handle.rotation.y = 0.35;
+    handle.position.set(0, 0.52, -0.05);
+    const head = spikeBall(0.13);
+    head.position.set(0.42, 0.56, -0.2);
+    g.add(handle, head);
+  } else if (weapon === 'crown') { // the King's golden crown
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 6, 12), OLM_GOLD);
+    band.rotation.x = Math.PI / 2;
+    band.position.set(0, 0.55, 0.62);
+    g.add(band);
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 2;
+      const pt = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.14, 4), OLM_GOLD);
+      pt.position.set(Math.sin(a) * 0.16, 0.63, 0.62 + Math.cos(a) * 0.16);
+      g.add(pt);
+    }
   }
   const blob = new THREE.Mesh(
     new THREE.CircleGeometry(0.55, 16),
@@ -120,28 +162,48 @@ export function buildMonsters(field, seed, scene) {
 
   // olms haunt the four realms (they share the slimes list, so combat, the
   // minimap and respawns all treat them like any other monster)
-  for (const [key, count] of [['forest', 5], ['desert', 4], ['ice', 4], ['crystal', 3]]) {
+  function spawnOlm(x, z, opts = {}) {
+    const { g, body, blob, tail } = buildOlmMesh(opts.weapon);
+    if (opts.scale) g.scale.setScalar(opts.scale);
+    g.position.set(x, ground(x, z), z);
+    g.rotation.y = rng() * Math.PI * 2;
+    scene.add(g);
+    slimes.push({
+      kind: 'olm', mesh: g, body, blob, tail, home: { x, z },
+      hp: opts.hp ?? OLM_HP, maxHp: opts.hp ?? OLM_HP,
+      reward: opts.reward ?? OLM_REWARD, dmg: opts.dmg ?? 1,
+      leash: opts.leash ?? OLM_LEASH, speed: opts.speed ?? OLM_SPEED,
+      alive: true, vy: 0, grounded: true, hopCd: rng() * 2, hurtT: 0, contactCd: 0,
+      respawnT: 0, wanderA: rng() * Math.PI * 2, squash: 1, animT: rng() * 9,
+      kbx: 0, kbz: 0, king: !!opts.king,
+    });
+  }
+  for (const [key, count] of [['forest', 5], ['desert', 4], ['ice', 3], ['crystal', 3]]) {
     const realm = WORLD.realms?.[key];
     if (!realm) continue;
     let placed = 0;
     for (let i = 0; i < 300 && placed < count; i++) {
       const a = rng() * Math.PI * 2, rr = 3 + Math.sqrt(rng()) * realm.r * 0.8;
       const x = realm.x + Math.sin(a) * rr, z = realm.z + Math.cos(a) * rr;
-      const h = ground(x, z);
-      if (h < WORLD.seaLevel + 1.0) continue;
-      const { g, body, blob, tail } = buildOlmMesh();
-      g.position.set(x, h, z);
-      g.rotation.y = rng() * Math.PI * 2;
-      scene.add(g);
-      slimes.push({
-        kind: 'olm', mesh: g, body, blob, tail, home: { x, z },
-        hp: OLM_HP, maxHp: OLM_HP, reward: OLM_REWARD, alive: true,
-        vy: 0, grounded: true, hopCd: rng() * 2, hurtT: 0, contactCd: 0,
-        respawnT: 0, wanderA: rng() * Math.PI * 2, squash: 1, animT: rng() * 9,
-        kbx: 0, kbz: 0,
-      });
+      if (ground(x, z) < WORLD.seaLevel + 1.0) continue;
+      spawnOlm(x, z);
       placed++;
     }
+  }
+  // King Olm's court: armed guards in the castle rooms, and the King himself
+  // on the throne — huge, crowned, and (for now) unbeatable
+  if (WORLD.castle) {
+    WORLD.castle.rooms.forEach((p, i) => {
+      spawnOlm(p.x, p.z, {
+        weapon: i % 2 ? 'flail' : 'mace',
+        hp: 8, dmg: 1, reward: 8, leash: 15, speed: 3.0, scale: 1.15,
+      });
+    });
+    const K = WORLD.castle.throne;
+    spawnOlm(K.x, K.z, {
+      weapon: 'crown', king: true, scale: 2.3,
+      hp: 250, dmg: 2, reward: 100, leash: 13, speed: 2.4,
+    });
   }
 
   function hurt(s, dmg, fromX, fromZ) {
@@ -176,10 +238,11 @@ export function buildMonsters(field, seed, scene) {
     const g0 = ground(p.x, p.z);
     const dPlayer = Math.hypot(player.pos.x - p.x, player.pos.z - p.z);
     const dHome = Math.hypot(s.home.x - p.x, s.home.z - p.z);
+    const leash = s.leash ?? OLM_LEASH, topSpeed = s.speed ?? OLM_SPEED;
     let want, spd;
-    if (dPlayer < OLM_AGGRO && Math.abs(player.pos.y - g0) < 3 && dHome < OLM_LEASH) {
-      want = Math.atan2(player.pos.x - p.x, player.pos.z - p.z); spd = OLM_SPEED;
-    } else if (dHome > OLM_LEASH * 0.8) {
+    if (dPlayer < (s.king ? 14 : OLM_AGGRO) && Math.abs(player.pos.y - g0) < 3 && dHome < leash) {
+      want = Math.atan2(player.pos.x - p.x, player.pos.z - p.z); spd = topSpeed;
+    } else if (dHome > leash * 0.8) {
       want = Math.atan2(s.home.x - p.x, s.home.z - p.z); spd = 1.8; // slink home
     } else {
       if ((s.hopCd -= dt) <= 0) { s.wanderA += (rng() - 0.5) * 2.4; s.hopCd = 1.5 + rng() * 2; }
@@ -197,7 +260,7 @@ export function buildMonsters(field, seed, scene) {
     s.animT += dt * (1.5 + spd);
     s.tail.rotation.y = Math.sin(s.animT * 4.2) * 0.55;
     s.body.scale.x = 1 + Math.sin(s.animT * 8.4) * 0.06;
-    if (dPlayer < 1.0 && s.contactCd <= 0 && Math.abs(player.pos.y - p.y) < 1.2) {
+    if (dPlayer < (s.king ? 2.2 : 1.0) && s.contactCd <= 0 && Math.abs(player.pos.y - p.y) < 1.6) {
       s.contactCd = 1.0;
       events.contact(s);
     }

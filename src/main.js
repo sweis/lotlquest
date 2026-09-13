@@ -686,7 +686,7 @@ function simTick(dt) {
     }
     monsters.update(dt, controller.state, {
       contact: (s) => {
-        if (combat.damagePlayer(1, s.mesh.position.x, s.mesh.position.z) === 'died') onPlayerDeath();
+        if (combat.damagePlayer(s.dmg ?? 1, s.mesh.position.x, s.mesh.position.z) === 'died') onPlayerDeath();
       },
     });
   }
