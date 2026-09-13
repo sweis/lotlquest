@@ -358,10 +358,11 @@ function armory() {
 }
 
 function academy() {
-  // the Academy: one bright schoolroom — chalkboard, lectern, desks, a
-  // bookshelf, and a bell over the door. Memo teaches here.
+  // the Academy: a big schoolhouse with a front hall (library shelf +
+  // lectern) and TWO classrooms across the back, each with its own
+  // chalkboard and desks. Bell over the door. Memo teaches here.
   const g = new THREE.Group();
-  const w = 9.2, d = 7.2, h = 4.4, T = 0.18, doorW = 1.5, doorH = 2.1;
+  const w = 15.0, d = 11.0, h = 4.6, T = 0.18, doorW = 1.6, doorH = 2.1;
   const wallMat = MAT.plaster[0].clone();
   const roofMat = MAT.stoneDark.clone();
 
@@ -385,31 +386,49 @@ function academy() {
   const bell = mesh(new THREE.SphereGeometry(0.17, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), MAT.shieldTrim, g, 0, h + 0.32, (d - T) / 2);
   bell.rotation.x = Math.PI; // open side down
 
-  // chalkboard + chalk scribbles on the back wall
-  mesh(new THREE.BoxGeometry(3.6, 1.5, 0.08), new THREE.MeshStandardMaterial({ color: 0x274436, roughness: 0.9 }), g, 0, 1.7, -(d - T) / 2 + 0.15);
-  for (let i = 0; i < 4; i++) {
-    const line = mesh(new THREE.BoxGeometry(1.2 + (i % 2) * 0.9, 0.045, 0.02),
-      new THREE.MeshStandardMaterial({ color: 0xe8e6da, roughness: 0.8 }), g, -0.6 + (i % 2) * 0.4, 2.15 - i * 0.28, -(d - T) / 2 + 0.2);
-    line.rotation.z = (i % 2 ? -1 : 1) * 0.02;
+  // interior partition: a wall across at z = -0.7 with a doorway into each
+  // classroom, plus a divider between the two classrooms
+  const pz = -0.7, pDoor = 1.4, pdx = 3.9; // classroom doors at x = ±3.9
+  const innerMat = MAT.plaster[1].clone();
+  const seg = (x0, x1) => mesh(new THREE.BoxGeometry(x1 - x0, h, T), innerMat, g, (x0 + x1) / 2, h / 2, pz);
+  seg(-(w - T) / 2, -pdx - pDoor / 2);
+  seg(-pdx + pDoor / 2, pdx - pDoor / 2);
+  seg(pdx + pDoor / 2, (w - T) / 2);
+  for (const ddx of [-pdx, pdx]) { // lintels over the classroom doors
+    mesh(new THREE.BoxGeometry(pDoor, h - 2.1, T), innerMat, g, ddx, 2.1 + (h - 2.1) / 2, pz);
   }
-  // lectern
-  mesh(new THREE.BoxGeometry(0.5, 1.0, 0.4), MAT.woodDark, g, -1.6, 0.68, -(d - T) / 2 + 1.0);
-  const top = mesh(new THREE.BoxGeometry(0.6, 0.06, 0.5), MAT.wood, g, -1.6, 1.22, -(d - T) / 2 + 1.0);
-  top.rotation.x = -0.25;
-  // desks with stools, two rows facing the board
-  for (const [dx, dz] of [[-1.7, 0.4], [0.9, 0.4], [-1.7, 2.0], [0.9, 2.0]]) {
-    mesh(new THREE.BoxGeometry(1.5, 0.08, 0.6), MAT.wood, g, dx, 0.82, dz);
-    for (const lx of [-0.6, 0.6]) mesh(new THREE.BoxGeometry(0.08, 0.65, 0.5), MAT.woodDark, g, dx + lx, 0.5, dz);
-    mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.4, 8), MAT.wood, g, dx, 0.38, dz + 0.65);
+  mesh(new THREE.BoxGeometry(T, h, -pz + d / 2 - T), innerMat, g, 0, h / 2, (pz - d / 2) / 2); // divider
+
+  // TWO classrooms across the back, mirrored: chalkboard, chalk, desks
+  const boardMat = new THREE.MeshStandardMaterial({ color: 0x274436, roughness: 0.9 });
+  const chalkMat = new THREE.MeshStandardMaterial({ color: 0xe8e6da, roughness: 0.8 });
+  for (const side of [-1, 1]) {
+    const cx = side * w / 4;
+    mesh(new THREE.BoxGeometry(3.6, 1.5, 0.08), boardMat, g, cx, 1.7, -(d - T) / 2 + 0.15);
+    for (let i = 0; i < 4; i++) {
+      const line = mesh(new THREE.BoxGeometry(1.2 + (i % 2) * 0.9, 0.045, 0.02), chalkMat,
+        g, cx - 0.6 + (i % 2) * 0.4, 2.15 - i * 0.28, -(d - T) / 2 + 0.2);
+      line.rotation.z = (i % 2 ? -1 : 1) * 0.02;
+    }
+    // teacher's lectern + desks with stools facing the board
+    mesh(new THREE.BoxGeometry(0.5, 1.0, 0.4), MAT.woodDark, g, cx - 1.4, 0.68, -(d - T) / 2 + 1.1);
+    const top = mesh(new THREE.BoxGeometry(0.6, 0.06, 0.5), MAT.wood, g, cx - 1.4, 1.22, -(d - T) / 2 + 1.1);
+    top.rotation.x = -0.25;
+    for (const [dx, dz] of [[-1.5, -2.3], [1.1, -2.3], [-1.5, -1.1], [1.1, -1.1]]) {
+      mesh(new THREE.BoxGeometry(1.5, 0.08, 0.6), MAT.wood, g, cx + dx, 0.82, dz + 0);
+      for (const lx of [-0.6, 0.6]) mesh(new THREE.BoxGeometry(0.08, 0.65, 0.5), MAT.woodDark, g, cx + dx + lx, 0.5, dz);
+      mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.4, 8), MAT.wood, g, cx + dx, 0.38, dz + 0.65);
+    }
   }
-  // bookshelf on the right wall with bright book spines
-  mesh(new THREE.BoxGeometry(0.3, 2.2, 2.6), MAT.woodDark, g, (w - T) / 2 - 0.32, 1.28, -0.8);
+  // front hall: the school library shelf + a notice lectern
+  mesh(new THREE.BoxGeometry(0.3, 2.2, 3.4), MAT.woodDark, g, (w - T) / 2 - 0.32, 1.28, 2.2);
   const spineCols = [0xc45a5a, 0x5a7fc4, 0xc4a44a, 0x5aa06a, 0x9a6ac4];
-  for (let s = 0; s < 14; s++) {
+  for (let s = 0; s < 18; s++) {
     const sc = new THREE.MeshStandardMaterial({ color: spineCols[s % spineCols.length], roughness: 0.8 });
     mesh(new THREE.BoxGeometry(0.16, 0.34 + (s % 3) * 0.04, 0.14), sc, g,
-      (w - T) / 2 - 0.34, 0.6 + Math.floor(s / 5) * 0.72, -1.95 + (s % 5) * 0.46);
+      (w - T) / 2 - 0.34, 0.6 + Math.floor(s / 6) * 0.72, 0.85 + (s % 6) * 0.5);
   }
+  mesh(new THREE.BoxGeometry(0.5, 1.0, 0.4), MAT.woodDark, g, -(w - T) / 2 + 0.8, 0.68, 2.2);
 
   const bxw = (w - T) / 2, bzw = (d - T) / 2, dhw = doorW / 2 + 0.1;
   const walls = [
@@ -418,8 +437,13 @@ function academy() {
     [bxw, -bzw + 0.1, bxw, bzw - 0.1],
     [-bxw + 0.05, bzw, -dhw, bzw],
     [dhw, bzw, bxw - 0.05, bzw],
+    // interior: partition (with two classroom doorways) + the divider
+    [-bxw + 0.1, pz, -pdx - pDoor / 2, pz],
+    [-pdx + pDoor / 2, pz, pdx - pDoor / 2, pz],
+    [pdx + pDoor / 2, pz, bxw - 0.1, pz],
+    [0, pz + 0.1, 0, -bzw + 0.1],
   ];
-  return { g, r: 0, walls, fade: { mats: [wallMat, roofMat], r: Math.max(w, d) * 0.62 } };
+  return { g, r: 0, walls, fade: { mats: [wallMat, roofMat, innerMat], r: Math.max(w, d) * 0.62 } };
 }
 
 function stall(i, role) {

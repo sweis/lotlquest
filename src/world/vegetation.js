@@ -109,7 +109,7 @@ export function buildVegetation(field, seed) {
     if (slopeAt(x, z, h) > 1.6 || excluded(x, z) || barren(x, z)) return null;
     const grove = fbm(x * 0.02 + 900, z * 0.02 + 900, 3, seed + 5);
     if (grove < 0.52 && rng() > 0.12) return null;
-    return { x, z, h, s: 0.75 + rng() * 0.8, r: rng() * Math.PI * 2, tint: rng() };
+    return { x, z, h, s: 1.0 + rng() * 1.0, r: rng() * Math.PI * 2, tint: rng() }; // grown-up groves
   });
 
   const pines = scatter(140, 9000, (x, z, h) => {
@@ -117,7 +117,7 @@ export function buildVegetation(field, seed) {
     if (slopeAt(x, z, h) > 2.0 || excluded(x, z) || barren(x, z)) return null;
     const band = fbm(x * 0.017 + 300, z * 0.017 + 300, 3, seed + 77);
     if (band < 0.5 && rng() > 0.2) return null;
-    return { x, z, h, s: 0.8 + rng() * 0.7, r: rng() * Math.PI * 2, tint: rng() };
+    return { x, z, h, s: 1.0 + rng() * 0.9, r: rng() * Math.PI * 2, tint: rng() };
   });
 
   const bushes = scatter(170, 7000, (x, z, h) => {
@@ -167,9 +167,9 @@ export function buildVegetation(field, seed) {
     }
     return out;
   }
-  const gloomPines = scatterIn('forest', 120, (x, z, h) => { // the Dark Forest chokes with them
+  const gloomPines = scatterIn('forest', 160, (x, z, h) => { // the Dark Forest chokes with them
     if (h < WORLD.seaLevel + 1.0 || excluded(x, z)) return null;
-    return { x, z, h, s: 0.9 + rng() * 0.9, r: rng() * Math.PI * 2, tint: rng() };
+    return { x, z, h, s: 1.15 + rng() * 1.0, r: rng() * Math.PI * 2, tint: rng() };
   });
   const cacti = scatterIn('desert', 40, (x, z, h) => {
     if (h < WORLD.seaLevel + 1.0 || excluded(x, z)) return null;

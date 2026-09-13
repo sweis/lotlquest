@@ -172,7 +172,7 @@ export function makeHeightField(seed) {
   const dSite = pick(285, 333, 3.5, 10, 70, 135, false, -110, 40); // desert: mid-west
   const fSite = pick(27, 77, 4, 14, 70, 135, false, 110, 40);    // dark forest: mid-east
   WORLD.realms = {
-    forest: { x: fSite.x, z: fSite.z, r: 34 },
+    forest: { x: fSite.x, z: fSite.z, r: 42 }, // a little bigger, per the boss
     desert: { x: dSite.x, z: dSite.z, r: 36 },
     ice: { x: iSite.x, z: iSite.z, r: 30 },
     crystal: { x: cSite.x, z: cSite.z, r: 14 },

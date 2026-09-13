@@ -382,3 +382,43 @@
 ### Next
 - Olm boss in the Ice Castle throne room? Quests from the Moxolotl's dialog hooks.
 - NPC instancing if phones struggle; shoreline foam; ambient audio still TBD.
+
+## 2026-09-13 — v0.18: schools, black markets, kings, eggs (8 commits)
+
+### Shipped
+- **a2b7338** WAY bigger houses (~8.6-10.6m, 10-tread stairs); village plateau now
+  extends past the house ring (was the "grass inside houses" bug — floors sat on the
+  blend slope); camera confined to the room circle indoors (no more staring at the
+  outside of a wall from inside).
+- **0821335** THE ACADEMY (schoolhouse; Memo teaches) + THE BLACK MARKET in the Dark
+  Forest: obsidian stand, violet canopy, 1000+ token stock (Obsidian Shell +3 hearts /
+  Shadow Trident dmg 6 / Night Crossbow dmg 7). Fixed: shop click router never raycast
+  the realms group.
+- **bb799b7** FIRST-PERSON VIEW (V key / 👁 button, rigid eye camera, Coal hidden) +
+  click-to-walk steers around obstacles (deflected-bearing probes).
+- **f38cb40** THE EGG OPENING: new saves start as an egg — story cards, wiggle to
+  hatch, Storm walks in, the little green egg hatches early, "Why Matcha?" "Because
+  you are green." hatched persists; resets replay it; fresh saves are weaponless.
+- **9000364** Fountain: bottom pool, six spray arcs, looping droplets, animated ripple
+  texture. Wood grain + roof shingle textures everywhere wood/roofs are.
+- **f67c89d** KING OLM'S CASTLE: 32m keep with armoury wing, library wing, throne
+  hall, flower pots on the walls; 5 armed guards (back-maces, flail tails); the King:
+  2.3x, crowned, 250 hp, unbeatable by design. Realms REARRANGED: castle far north
+  (265m), crystal/desert/forest in the middle band in front of it. Cave floor clip fix.
+- **(this)** Egg intro starts INSIDE Coal's house (Storm enters through the door);
+  Academy doubled with TWO classrooms + hall; 9 treasure chests (7 grove + 2 rich
+  Dark Forest, lid animation, 180s refill, verified 22-token haul); trees ~30% bigger;
+  Dark Forest r 34→42 with 160 gloom pines.
+
+### Verified / not verified
+- Verified with numbers+screens: egg-in-house scene end-to-end, castle gate walk-in,
+  King + armed guards on camera, realm bearings, chest open via real clicks, FP eye
+  camera (0.18m at eye height), push-past NPCs, Black Market purchases (maxHp 10→16).
+- Not verified: mobile pass on new UI (fpBtn/eggBanner), trail grades to the far
+  castle (A* may skip steep seeds by design), academy/house interior lighting is dim
+  (sun-shadowed; ambient only — candidate for a later interior-light pass).
+
+### Quirk reaffirmed
+- localStorage "fresh save" tests must beat the pagehide autosave: register a later
+  pagehide listener that rewrites the key, THEN reload. removeItem alone gets
+  resurrected.

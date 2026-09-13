@@ -10,6 +10,7 @@ import { buildTrails } from './world/trails.js';
 import { buildMonsters } from './world/monsters.js';
 import { buildCave } from './world/cave.js';
 import { buildRealms } from './world/regions.js';
+import { buildChests } from './world/chests.js';
 import { buildPickups } from './world/pickups.js';
 import { createNPCs } from './world/npcs.js';
 import { createDialog } from './game/dialog.js';
@@ -53,7 +54,7 @@ document.getElementById('ctxlost').addEventListener('pointerdown', () => locatio
 const scene = new THREE.Scene();
 
 // ---------------------------------------------------------------- world
-let field, terrain, vegetation, village, monsters, npcs, cave, realms, pickups, peakSpot;
+let field, terrain, vegetation, village, monsters, npcs, cave, realms, chests, pickups, peakSpot;
 let minimap = null, combat = null;
 let intro = null; // the egg-opening cutscene state (declared early — updateHUD reads it)
 const OBSTACLES = []; // building colliders, refilled on world build
@@ -88,6 +89,7 @@ function buildWorld(newSeed) {
   if (npcs) npcs.dispose(scene);
   if (cave) cave.dispose(scene);
   if (realms) realms.dispose(scene);
+  if (chests) chests.dispose(scene);
   if (pickups) pickups.dispose(scene);
   field = makeHeightField(seed);
   terrain = buildTerrainMesh(field);
@@ -98,13 +100,14 @@ function buildWorld(newSeed) {
   village.landmarks.push(cave.landmark); // toast + map dot + teleport spot
   realms = buildRealms(field, scene, seed);
   village.landmarks.push(...realms.landmarks);
+  chests = buildChests(field, scene, seed);
   monsters = buildMonsters(field, seed, scene);
   pickups = buildPickups(field, seed, scene);
   npcs = createNPCs(field, scene, village.landmarks, village.stalls, OBSTACLES);
   scene.add(terrain, vegetation, village.group);
   OBSTACLES.length = 0;
   OBSTACLES.push(...village.obstacles, ...vegetation.userData.obstacles, ...cave.obstacles,
-    ...realms.obstacles, ...npcs.obstacles);
+    ...realms.obstacles, ...chests.obstacles, ...npcs.obstacles);
   if (gfxLow) { // fewer fine details in low mode
     const bladesMesh = vegetation.getObjectByName('grassBlades');
     if (bladesMesh) bladesMesh.visible = false;
@@ -272,6 +275,13 @@ function introShow(step) {
 
 function startIntro() {
   setFP(false);
+  // eggs hatch at home: the scene opens inside Coal's house, facing the door
+  const home = village.landmarks.find((l) => l.name === "Coal's House");
+  if (home) {
+    const dl = Math.hypot(WORLD.village.x - home.x, WORLD.village.z - home.z) || 1;
+    controller.teleport(home.x, home.z,
+      Math.atan2((WORLD.village.x - home.x) / dl, (WORLD.village.z - home.z) / dl));
+  }
   const sp = controller.state.pos;
   const eggMat = new THREE.MeshStandardMaterial({ color: 0xf1ebdf, roughness: 0.55 });
   const egg = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 12), eggMat);
@@ -294,10 +304,14 @@ function introHatch() { // crack! Coal appears, Storm is summoned from the shore
   if (storm) {
     intro.storm = storm;
     intro.stormHome = storm.home;
-    const sx = sp.x + 1.5, sz = sp.z - 9; // come in from the open south plaza
-    storm.ax.root.position.set(sx, fieldRef.heightAt(sx, sz), sz);
-    storm.home = { x: sp.x + 0.6, z: sp.z - 2.0 };
-    storm.target = { x: sp.x + 0.6, z: sp.z - 2.0 };
+    // he comes in THROUGH the front door: start outside on the door axis,
+    // walk a straight line that threads the doorway
+    const home = village.landmarks.find((l) => l.name === "Coal's House") ?? sp;
+    const dl = Math.hypot(WORLD.village.x - home.x, WORLD.village.z - home.z) || 1;
+    const dx = (WORLD.village.x - home.x) / dl, dz = (WORLD.village.z - home.z) / dl;
+    storm.ax.root.position.set(home.x + dx * 9, fieldRef.heightAt(home.x + dx * 9, home.z + dz * 9), home.z + dz * 9);
+    storm.home = { x: home.x + dx * 1.8, z: home.z + dz * 1.8 };
+    storm.target = { x: home.x + dx * 1.8, z: home.z + dz * 1.8 };
     storm.wait = 0;
   }
 }
@@ -467,6 +481,29 @@ scene.add(walkMarker);
         walkMarker.position.set(p.x, field.groundAt(p.x, p.z) + 0.08, p.z);
       }
       return;
+    }
+
+    // a treasure chest? open it up close, walk over if not
+    const cHits = ray.intersectObjects(chests.group.children, true);
+    if (cHits.length) {
+      const res = chests.tryOpen(cHits[0].object, controller.state.pos, (c) => {
+        const n = (c.rich ? 15 : 6) + ((Math.random() * (c.rich ? 10 : 5)) | 0);
+        combat.dropTokens(c.x, c.z, n);
+        if (Math.random() < 0.35) {
+          const kind = ['kelp', 'berry', 'petal'][(Math.random() * 3) | 0];
+          combat.collectIngredient(kind);
+          combat.collectIngredient(kind);
+          showToast(`Treasure! ${n} tokens and some ${kind}!`);
+        } else {
+          showToast(`Treasure! ${n} tokens!`);
+        }
+      });
+      if (res === 'far') {
+        const hp = cHits[0].point;
+        controller.setWalkTarget(hp.x, hp.z);
+        walkMarker.position.set(hp.x, field.groundAt(hp.x, hp.z) + 0.08, hp.z);
+      }
+      if (res !== false) return;
     }
 
     // village buildings + realm structures (the Black Market lives out there)
@@ -756,6 +793,7 @@ function frame(now) {
   cave.update(dt); // torch flicker
   realms.update(dt); // crystal glow pulse
   village.update(dt); // fountain spray + rippling water
+  chests.update(dt); // lid hinges + refills
   saveTimer += dt;
   if (saveTimer > 6 && phase === 'playing') { saveTimer = 0; combat.save(); } // keep everything
 
