@@ -86,11 +86,11 @@ function house(rng, own = false) {
   // floor, a straight stair ramp along the right wall. Coal's own house also
   // gets a weapon display rack and a potion-maker cauldron.
   const g = new THREE.Group();
-  const w = (own ? 7.2 : 6.2) + rng() * 0.8, d = (own ? 6.2 : 5.6) + rng() * 0.6;
-  const h = 4.9; // two floors
+  const w = (own ? 9.6 : 8.6) + rng() * 1.0, d = (own ? 8.4 : 7.6) + rng() * 0.8;
+  const h = 5.4; // two roomy floors
   const wallMat = MAT.plaster[(rng() * MAT.plaster.length) | 0].clone();
   const roofMat = MAT.roof[(rng() * MAT.roof.length) | 0].clone();
-  const T = 0.15, doorW = 1.1, doorH = 1.75;
+  const T = 0.15, doorW = 1.3, doorH = 1.9;
 
   // floor rides above the terrain + polygonOffset — no z-fighting on slopes
   mesh(new THREE.BoxGeometry(w, 0.14, d), MAT.floorWood, g, 0, 0.18, 0);
@@ -128,7 +128,7 @@ function house(rng, own = false) {
   // an actual staircase — eight treads climbing toward +x (right-back
   // corner), with a handrail on the room side. The walk surface is still the
   // smooth ramp below; the treads are what you SEE.
-  const STEPS = 8;
+  const STEPS = 10;
   const stepD = stairRun / STEPS, stepH = slabY / STEPS;
   for (let si = 0; si < STEPS; si++) {
     mesh(new THREE.BoxGeometry(stepD + 0.05, stepH, stairW), MAT.woodDark, g,
@@ -496,7 +496,7 @@ export function buildVillage(field, seed) {
   let houses = 0;
   for (const deg of [115, 150, 192, 232, 305, 5]) {
     const a = (deg / 180) * Math.PI + (rng() - 0.5) * 0.12;
-    const r = 19.5 + rng() * 3.5; // pushed out — the houses grew
+    const r = 24.5 + rng() * 3; // pushed out — the houses grew WAY bigger
     place(house(rng), V.x + Math.sin(a) * r, V.z + Math.cos(a) * r);
     houses++;
   }
@@ -512,7 +512,7 @@ export function buildVillage(field, seed) {
   let rack = null, brewStand = null, ownHousePos = null;
   {
     const a = (335 / 180) * Math.PI;
-    const x = V.x + Math.sin(a) * 18, z = V.z + Math.cos(a) * 18;
+    const x = V.x + Math.sin(a) * 22, z = V.z + Math.cos(a) * 22;
     const own = house(rng, true);
     place(own, x, z);
     rack = own.rack;

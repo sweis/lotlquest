@@ -42,6 +42,7 @@ export function createCamera(renderer, field) {
   };
   let indoorBlend = 0, indoorTarget = 0;
   let undergroundMode = false; // in the cave: terrain above is a CEILING, not a floor
+  let bounds = null; // {x,z,r}: keep the camera inside this room circle
 
   function update(dt, playerState) {
     const p = playerState.pos;
@@ -84,6 +85,25 @@ export function createCamera(renderer, field) {
       const gNow = Math.max(field.heightAt(cam.position.x, cam.position.z) + 0.45, WORLD.seaLevel + 0.35);
       if (cam.position.y < gNow) cam.position.y = gNow;
     }
+    if (bounds) {
+      // inside a room: never let the camera pop through a wall and stare at
+      // the OUTSIDE of the house — slide it back along the player→camera
+      // segment until it's inside the room circle again
+      const d = Math.hypot(cam.position.x - bounds.x, cam.position.z - bounds.z);
+      if (d > bounds.r) {
+        const vx = cam.position.x - p.x, vz = cam.position.z - p.z;
+        let lo = 0, hi = 1;
+        for (let i = 0; i < 12; i++) {
+          const mid = (lo + hi) / 2;
+          if (Math.hypot(p.x + vx * mid - bounds.x, p.z + vz * mid - bounds.z) > bounds.r) hi = mid;
+          else lo = mid;
+        }
+        cam.position.x = p.x + vx * lo;
+        cam.position.z = p.z + vz * lo;
+        // bring the height down with it, or a close camera stares at the roof
+        cam.position.y = p.y + 0.6 + (cam.position.y - (p.y + 0.6)) * Math.max(lo, 0.25);
+      }
+    }
     lookTarget.lerp(new THREE.Vector3(p.x, p.y + 0.75, p.z), 1 - Math.exp(-12 * dt));
     cam.lookAt(lookTarget);
   }
@@ -117,6 +137,7 @@ export function createCamera(renderer, field) {
 
   function setIndoor(on) { indoorTarget = on ? 1 : 0; }
   function setUnderground(on) { undergroundMode = on; }
+  function setBounds(b) { bounds = b; }
 
-  return { cam, orbit, update, setMode, snapBehind, moveYaw, setIndoor, setUnderground, get mode() { return mode; } };
+  return { cam, orbit, update, setMode, snapBehind, moveYaw, setIndoor, setUnderground, setBounds, get mode() { return mode; } };
 }

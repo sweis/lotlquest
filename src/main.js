@@ -552,10 +552,10 @@ function frame(now) {
 
   // fade the house Coal is inside (or at the door of) so the camera can see
   // him, and pull the chase camera in close while indoors
-  let insideAnyHouse = false;
+  let insideAnyHouse = false, insideHouse = null;
   for (const h of village.fadeHouses) {
     const inside = Math.hypot(controller.state.pos.x - h.x, controller.state.pos.z - h.z) < h.r * 1.05;
-    if (inside) insideAnyHouse = true;
+    if (inside) { insideAnyHouse = true; insideHouse = h; }
     for (const m of h.mats) {
       const target = inside ? 0.28 : 1;
       m.opacity += (target - m.opacity) * (1 - Math.exp(-10 * dt));
@@ -571,6 +571,14 @@ function frame(now) {
   const inCave = cave.inside(controller.state.pos.x, controller.state.pos.z) ||
     realms.insideCrystal(controller.state.pos.x, controller.state.pos.z);
   camera.setIndoor(insideAnyHouse || inCave);
+  // room circle the camera must stay inside. fadeHouse r covers the rect's
+  // corners; ×0.72 ≈ the short-side half-extent, so the circle stays within
+  // the walls along their normals too
+  camera.setBounds(
+    insideHouse ? { x: insideHouse.x, z: insideHouse.z, r: insideHouse.r * 0.72 }
+      : cave.inside(controller.state.pos.x, controller.state.pos.z) ? { x: WORLD.cave.x, z: WORLD.cave.z, r: 7.2 }
+      : realms.insideCrystal(controller.state.pos.x, controller.state.pos.z) ? { x: WORLD.realms.crystal.x, z: WORLD.realms.crystal.z, r: 6.2 }
+      : null);
   cave.update(dt); // torch flicker
   realms.update(dt); // crystal glow pulse
   saveTimer += dt;

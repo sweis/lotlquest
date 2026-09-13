@@ -126,7 +126,7 @@ export function makeHeightField(seed) {
     const ex = caveSpot.x + (dvx / dl) * 24, ez = caveSpot.z + (dvz / dl) * 24;
     const dv = Math.hypot(ex - vSite.x, ez - vSite.z);
     const eh = lerp(villageH, rawHeightAt(ex, ez),
-      smoothstep(WORLD.village.r * 0.55, WORLD.village.r * 1.2, dv));
+      smoothstep(WORLD.village.r * 1.06, WORLD.village.r * 1.55, dv)); // must mirror heightAt's blend
     WORLD.cave.approach = { ex, ez, eh };
   }
 
@@ -195,9 +195,11 @@ export function makeHeightField(seed) {
     // gently level the coastal landing so the beach stays easy ground
     const ds = Math.hypot(x - WORLD.landing.x, z - WORLD.landing.z);
     h = lerp(spawnH, h, smoothstep(WORLD.spawnFlatR * 0.4, WORLD.spawnFlatR * 1.5, ds));
-    // level the village site so buildings sit naturally
+    // level the village site so buildings sit naturally — the plateau must
+    // reach PAST the house ring (~32m with the big houses) or terrain pokes
+    // up through floors ("grass inside the houses")
     const dv = Math.hypot(x - WORLD.village.x, z - WORLD.village.z);
-    h = lerp(WORLD.village.h, h, smoothstep(WORLD.village.r * 0.55, WORLD.village.r * 1.2, dv));
+    h = lerp(WORLD.village.h, h, smoothstep(WORLD.village.r * 1.06, WORLD.village.r * 1.55, dv));
     // level a pad for the Moxolotl Cave's rock structure
     const dcv = Math.hypot(x - WORLD.cave.x, z - WORLD.cave.z);
     h = lerp(WORLD.cave.h, h, smoothstep(WORLD.cave.r * 0.55, WORLD.cave.r * 1.25, dcv));
