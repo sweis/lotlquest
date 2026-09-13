@@ -43,6 +43,7 @@ export function createCamera(renderer, field) {
   let indoorBlend = 0, indoorTarget = 0;
   let undergroundMode = false; // in the cave: terrain above is a CEILING, not a floor
   let bounds = null; // {x,z,r}: keep the camera inside this room circle
+  let fp = false;    // first-person: eyes in Coal's head
 
   function update(dt, playerState) {
     const p = playerState.pos;
@@ -59,6 +60,17 @@ export function createCamera(renderer, field) {
       return;
     }
 
+    if (fp) {
+      // first person: see what Coal sees. A/D turns the body (and the view);
+      // dragging peeks sideways and aims up/down. Rigid — no lerp in FP.
+      const yaw = playerState.heading + orbit.yawOffset;
+      const eyeY = p.y + 0.6;
+      cam.position.set(p.x + Math.sin(yaw) * 0.18, eyeY, p.z + Math.cos(yaw) * 0.18);
+      const pitchLook = 0.45 - orbit.pitch; // drag down = look up, like the orbit
+      lookTarget.set(p.x + Math.sin(yaw) * 4, eyeY + pitchLook * 4, p.z + Math.cos(yaw) * 4);
+      cam.lookAt(lookTarget);
+      return;
+    }
     // chase: hold the dragged offset relative to heading — no auto-recenter.
     // Indoors the camera pulls in close so walls don't sit between it and Coal.
     indoorBlend += (indoorTarget - indoorBlend) * (1 - Math.exp(-6 * dt));
@@ -138,6 +150,10 @@ export function createCamera(renderer, field) {
   function setIndoor(on) { indoorTarget = on ? 1 : 0; }
   function setUnderground(on) { undergroundMode = on; }
   function setBounds(b) { bounds = b; }
+  function setFP(on) { fp = on; }
 
-  return { cam, orbit, update, setMode, snapBehind, moveYaw, setIndoor, setUnderground, setBounds, get mode() { return mode; } };
+  return {
+    cam, orbit, update, setMode, snapBehind, moveYaw, setIndoor, setUnderground, setBounds, setFP,
+    get mode() { return mode; }, get fp() { return fp; },
+  };
 }

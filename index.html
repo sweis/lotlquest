@@ -121,6 +121,13 @@
     box-shadow: 0 2px 8px rgba(8,14,22,.3);
   }
   #bagBtn:hover { background: #ffffff; }
+  #fpBtn {
+    position: absolute; top: 12px; right: 102px; width: 36px; height: 36px;
+    display: none; border-radius: 50%; border: 0; cursor: pointer;
+    background: rgba(248,250,252,.85); font-size: 17px;
+    box-shadow: 0 2px 8px rgba(8,14,22,.3);
+  }
+  #fpBtn:hover { background: #ffffff; }
 
   /* HUD: hearts + tokens + weapon — upper right, under the help button */
   #hud {
@@ -220,6 +227,7 @@
 <div id="toast" class="ui"></div>
 <button id="helpBtn" class="ui">?</button>
 <button id="bagBtn" class="ui">🎒</button>
+<button id="fpBtn" class="ui" title="First-person view (V)">👁</button>
 <div id="hud" class="ui">
   <div id="hearts"></div>
   <div id="tokenRow"><span class="coin"></span><span id="tokenCount">0</span></div>

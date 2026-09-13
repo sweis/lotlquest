@@ -84,7 +84,16 @@ export function createController(initialField, playerRoot, obstacles = []) {
       if (dist < 0.7) {
         state.walkTarget = null;
       } else {
-        let diff = Math.atan2(dx, dz) - state.heading;
+        let want = Math.atan2(dx, dz);
+        // something in the way? probe deflected bearings and steer AROUND it
+        // (blocked() is hoisted from below)
+        if (blocked(state.pos.x + Math.sin(want) * 1.0, state.pos.z + Math.cos(want) * 1.0)) {
+          for (const dev of [0.6, -0.6, 1.2, -1.2, 1.8, -1.8]) {
+            const a = want + dev;
+            if (!blocked(state.pos.x + Math.sin(a) * 1.0, state.pos.z + Math.cos(a) * 1.0)) { want = a; break; }
+          }
+        }
+        let diff = want - state.heading;
         diff = Math.atan2(Math.sin(diff), Math.cos(diff));
         const maxTurn = TURN_RATE * 1.4 * dt;
         state.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));

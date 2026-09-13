@@ -236,6 +236,17 @@ const dialog = createDialog();
 const touch = createTouchControls({ controller, combat, camera });
 const shop = createShop(combat, () => {});
 document.getElementById('shopClose').addEventListener('click', () => shop.close());
+// ------------------------------------------------------- first person
+let fpView = false;
+function setFP(on) {
+  fpView = on;
+  camera.setFP(on);
+  camera.orbit.yawOffset = 0; // enter looking straight ahead
+  const b = document.getElementById('fpBtn');
+  if (b) b.style.background = on ? '#ffd76a' : '';
+}
+document.getElementById('fpBtn')?.addEventListener('click', () => setFP(!fpView));
+
 const SHOP_SPOTS = [
   { mode: 'armory', r: 5.2, at: () => village.landmarks.find((l) => l.name === 'The Armory') },
   { mode: 'weapons', r: 2.7, at: () => village.stalls.find((s) => s.mode === 'weapons') },
@@ -387,6 +398,7 @@ const CONTROLS = [
   ['I / 🎒', 'inventory — equip any weapon you own'],
   ['1 / 2', 'switch melee / bow'],
   ['Space', 'jump'],
+  ['V / 👁', 'first-person view — see what Coal sees'],
   ['drag mouse', 'orbit camera — it holds that angle as you move'],
   ['scroll', 'zoom camera'],
   ['M', 'toggle map'],
@@ -424,6 +436,7 @@ function setPhase(p) {
     document.getElementById('hud').style.display = 'flex';
     document.getElementById('helpBtn').style.display = 'block';
     document.getElementById('bagBtn').style.display = 'block';
+    document.getElementById('fpBtn').style.display = 'block';
   }
 }
 document.getElementById('helpBtn').addEventListener('click', () => {
@@ -472,6 +485,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && inventory.isOpen()) { inventory.close(); return; }
   if (e.key === 'Escape' && dialog.isOpen()) { dialog.close(); return; }
   if (e.key === 'Escape' && shop.isOpen()) { shop.close(); return; } // close() blocks reopen itself
+  if (e.key === 'v' || e.key === 'V') { setFP(!fpView); return; }
   if (e.key === 'Escape' && phase === 'playing') setPhase('paused');
   else if (e.key === 'Escape' && phase === 'paused') setPhase('playing');
   if (e.key === '?') helpEl.style.display = helpEl.style.display === 'block' ? 'none' : 'block';
@@ -591,6 +605,7 @@ function frame(now) {
   walkMarker.visible = !!wt;
   if (wt) walkMarker.scale.setScalar(1 + Math.sin(now * 0.008) * 0.15);
 
+  coal.root.visible = !fpView; // in first person you ARE Coal
   renderer.render(scene, camera.cam);
   frameMs[frameIdx] = dt * 1000; // wall frame time
   frameIdx = (frameIdx + 1) % frameMs.length; frameCount++;
