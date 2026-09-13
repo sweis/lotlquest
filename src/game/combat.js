@@ -64,6 +64,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     buffs: { speed: 0, guard: 0, luck: 0 }, // seconds remaining (potions)
     ingredients: { kelp: 0, berry: 0, petal: 0 },
     fish: { minnow: 0, trout: 0, sunfish: 0 },
+    hatched: false, // a brand-new save begins as an egg (see the intro)
   };
   const maxHp = () => state.baseMaxHp + state.shell * 2;
 
@@ -79,6 +80,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
       if (s.weapon === 'bow' && state.bow) state.weapon = 'bow';
       if (typeof s.hp === 'number') state.hp = Math.max(2, Math.min(s.hp, state.baseMaxHp + state.shell * 2));
       if (s.pos && Number.isFinite(s.pos.x) && Number.isFinite(s.pos.z)) savedPos = s.pos;
+      state.hatched = !!s.hatched;
     }
   } catch { /* fresh start */ }
   let saveDisabled = false; // set by resetSave — autosave/pagehide must not resurrect the data
@@ -87,7 +89,7 @@ export function createCombat({ scene, coal, controller, field, onChange }) {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         tokens: state.tokens, melee: state.melee, bow: state.bow, shell: state.shell,
-        equippedMelee: state.equippedMelee,
+        equippedMelee: state.equippedMelee, hatched: state.hatched,
         ingredients: state.ingredients, fish: state.fish, weapon: state.weapon, hp: state.hp,
         pos: {
           x: +controller.state.pos.x.toFixed(1),

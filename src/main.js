@@ -15,7 +15,7 @@ import { createNPCs } from './world/npcs.js';
 import { createDialog } from './game/dialog.js';
 import { createInventory } from './game/inventory.js';
 import { createTouchControls } from './game/touch.js';
-import { buildCoal } from './player/coal.js';
+import { buildCoal, buildAxolotl } from './player/coal.js';
 import { createController } from './player/controller.js';
 import { createCamera } from './game/camera.js';
 import { createMinimap } from './game/minimap.js';
@@ -55,6 +55,7 @@ const scene = new THREE.Scene();
 // ---------------------------------------------------------------- world
 let field, terrain, vegetation, village, monsters, npcs, cave, realms, pickups, peakSpot;
 let minimap = null, combat = null;
+let intro = null; // the egg-opening cutscene state (declared early — updateHUD reads it)
 const OBSTACLES = []; // building colliders, refilled on world build
 const water = buildWater();
 scene.add(water);
@@ -194,8 +195,9 @@ function updateHUD() {
     .filter((k) => combat.state.buffs[k] > 0)
     .map((k) => buffNames[k]);
   document.getElementById('weaponRow').textContent =
-    wnames[combat.state.weapon] + (combat.state.bow ? '  ·  1/2 to switch' : '') + '  ·  F to attack' +
-    (active.length ? '  ·  ' + active.join(' · ') : '');
+    intro && !intro.showCoal ? 'You are an egg 🥚'
+      : wnames[combat.state.weapon] + (combat.state.bow ? '  ·  1/2 to switch' : '') + '  ·  F to attack' +
+        (active.length ? '  ·  ' + active.join(' · ') : '');
   const ing = combat.state.ingredients;
   const fishTotal = combat.state.fish.minnow + combat.state.fish.trout + combat.state.fish.sunfish;
   document.getElementById('ingRow').innerHTML =
@@ -236,6 +238,152 @@ const dialog = createDialog();
 const touch = createTouchControls({ controller, combat, camera });
 const shop = createShop(combat, () => {});
 document.getElementById('shopClose').addEventListener('click', () => shop.close());
+// ------------------------------------------------------- the egg opening
+// A brand-new save begins as an egg in the town square. The story the game
+// tells (tap to advance): you are an egg → you have a sister named Matcha,
+// you are three years older → who will take care of you? Storm will → wiggle,
+// HATCH → Storm walks in and takes care of you → wait, the little green egg
+// wasn't supposed to hatch yet → "I am going to name you Matcha." "Why
+// Matcha?" "Because you are green."
+const INTRO_SCRIPT = [
+  { text: 'You are an egg.' },
+  { text: 'You have a sister named Matcha.\nYou are three years older.' },
+  { text: 'Who will take care of you?' },
+  { text: 'Storm will take care of you.' },
+  { text: 'Wiggle!', wiggle: true },
+  { speaker: 'Storm', text: 'Easy, little one. I am Storm. I will take care of you.', waitStorm: true },
+  { speaker: 'Storm', text: 'Wait. What is your little sister doing here? She has not hatched yet!', egg2: true },
+  { speaker: 'Storm', text: 'I am going to name you… Matcha.', hatch2: true },
+  { speaker: 'Matcha', text: 'Why Matcha?' },
+  { speaker: 'Storm', text: 'Because you are green.' },
+  { text: 'And that is how it all began.' },
+];
+const eggBannerEl = document.getElementById('eggBanner');
+window.__introTap = () => introTap(); // the banner card itself is tappable
+
+function introShow(step) {
+  const S = INTRO_SCRIPT[step];
+  document.getElementById('eggSpeaker').textContent = S.speaker ?? '';
+  document.getElementById('eggText').textContent = S.text;
+  document.getElementById('eggHint').textContent =
+    S.wiggle ? 'tap tap tap!' : 'tap or press any key';
+  eggBannerEl.style.display = 'block';
+}
+
+function startIntro() {
+  setFP(false);
+  const sp = controller.state.pos;
+  const eggMat = new THREE.MeshStandardMaterial({ color: 0xf1ebdf, roughness: 0.55 });
+  const egg = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 12), eggMat);
+  egg.scale.set(1, 1.28, 1);
+  egg.position.set(sp.x, fieldRef.heightAt(sp.x, sp.z) + 0.5, sp.z);
+  egg.castShadow = true;
+  scene.add(egg);
+  intro = { step: 0, taps: 0, t: 0, egg, egg2: null, mini: null, showCoal: false, storm: null, stormHome: null };
+  introShow(0);
+  updateHUD();
+}
+
+function introHatch() { // crack! Coal appears, Storm is summoned from the shore
+  intro.egg.visible = false;
+  intro.showCoal = true;
+  intro.waitingStorm = true; // no skipping ahead while he walks over
+  showToast('You hatched! Welcome, Coal.');
+  const sp = controller.state.pos;
+  const storm = npcs.list.find((n) => n.name === 'Storm');
+  if (storm) {
+    intro.storm = storm;
+    intro.stormHome = storm.home;
+    const sx = sp.x + 1.5, sz = sp.z - 9; // come in from the open south plaza
+    storm.ax.root.position.set(sx, fieldRef.heightAt(sx, sz), sz);
+    storm.home = { x: sp.x + 0.6, z: sp.z - 2.0 };
+    storm.target = { x: sp.x + 0.6, z: sp.z - 2.0 };
+    storm.wait = 0;
+  }
+}
+
+function introTap() {
+  if (!intro) return;
+  const S = INTRO_SCRIPT[intro.step];
+  if (S.wiggle) { // three wiggles to hatch
+    intro.taps++;
+    if (intro.taps >= 3) {
+      introHatch();
+      intro.step++;
+      eggBannerEl.style.display = 'none'; // hidden until Storm arrives
+    }
+    return;
+  }
+  if (S.waitStorm && intro.waitingStorm) return; // he's still walking over
+  intro.step++;
+  if (intro.step >= INTRO_SCRIPT.length) { endIntro(); return; }
+  const N = INTRO_SCRIPT[intro.step];
+  if (N.egg2) { // the little green egg pops up beside Coal
+    const sp = controller.state.pos;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10),
+      new THREE.MeshStandardMaterial({ color: 0xcfe4b4, roughness: 0.55 }));
+    m.scale.set(1, 1.26, 1);
+    m.position.set(sp.x + 1.2, fieldRef.heightAt(sp.x + 1.2, sp.z + 0.4) + 0.36, sp.z + 0.4);
+    m.castShadow = true;
+    scene.add(m);
+    intro.egg2 = m;
+  }
+  if (N.hatch2 && intro.egg2) { // and out comes a very small, very green sister
+    intro.egg2.visible = false;
+    const sp = controller.state.pos;
+    const mini = buildAxolotl({
+      name: 'babyMatcha', gillStyle: 'frilly', body: 0x5d8f4e, belly: 0x476f3a,
+      stomach: 0xaecb92, gill: 0x2c5527, eyeStyle: 'round', iris: 0x2c4a26,
+    });
+    mini.root.scale.setScalar(0.5);
+    mini.root.position.set(sp.x + 1.2, fieldRef.heightAt(sp.x + 1.2, sp.z + 0.4), sp.z + 0.4);
+    mini.root.rotation.y = Math.atan2(sp.x - (sp.x + 1.2), sp.z - (sp.z + 0.4));
+    scene.add(mini.root);
+    intro.mini = mini;
+  }
+  introShow(intro.step);
+}
+
+function updateIntro(dt) {
+  intro.t += dt;
+  const S = INTRO_SCRIPT[intro.step];
+  if (intro.egg.visible) { // the egg rocks — harder as it's tapped
+    intro.egg.rotation.z = Math.sin(intro.t * (5 + intro.taps * 3)) * (0.08 + intro.taps * 0.06);
+  }
+  if (intro.egg2 && intro.egg2.visible) {
+    intro.egg2.rotation.z = Math.sin(intro.t * 9) * 0.16;
+  }
+  if (intro.mini) intro.mini.animate(dt, 0, true);
+  if (S && S.waitStorm) { // banner stays hidden until Storm is beside you
+    const st = intro.storm;
+    if (!st) { intro.waitingStorm = false; introShow(intro.step); return; }
+    const d = Math.hypot(st.ax.root.position.x - controller.state.pos.x,
+      st.ax.root.position.z - controller.state.pos.z);
+    if (eggBannerEl.style.display === 'none') {
+      // the greet reflex stops NPCs at 3.6m, so "arrived" must be beyond that
+      if (d < 4.2 || intro.t > 20) { intro.waitingStorm = false; introShow(intro.step); }
+      else intro.waitingStorm = true;
+    }
+  }
+}
+
+function endIntro() {
+  eggBannerEl.style.display = 'none';
+  scene.remove(intro.egg);
+  if (intro.egg2) scene.remove(intro.egg2);
+  if (intro.mini) scene.remove(intro.mini.root); // grown-up Matcha lives by the well
+  if (intro.storm && intro.stormHome) { // Storm strolls back to his shore
+    intro.storm.home = intro.stormHome;
+    intro.storm.target = null;
+    intro.storm.wait = 4;
+  }
+  intro = null;
+  combat.state.hatched = true;
+  combat.save();
+  updateHUD();
+  showToast('Three years later…');
+}
+
 // ------------------------------------------------------- first person
 let fpView = false;
 function setFP(on) {
@@ -302,6 +450,7 @@ scene.add(walkMarker);
     if (phase !== 'playing') return;
     const moved = Math.hypot(e.clientX - downX, e.clientY - downY);
     if (moved > 6 || performance.now() - downT > 450) return; // that was a drag
+    if (intro) { introTap(); return; } // taps drive the egg opening
     if (dialog.isOpen()) dialog.close(); // ground click dismisses chat, then acts
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera.cam);
@@ -437,6 +586,7 @@ function setPhase(p) {
     document.getElementById('helpBtn').style.display = 'block';
     document.getElementById('bagBtn').style.display = 'block';
     document.getElementById('fpBtn').style.display = 'block';
+    if (!combat.state.hatched && !intro) startIntro(); // new save: you are an egg
   }
 }
 document.getElementById('helpBtn').addEventListener('click', () => {
@@ -481,6 +631,7 @@ document.getElementById('playBtn').addEventListener('click', () => setPhase('pla
 document.getElementById('resumeBtn').addEventListener('click', () => setPhase('playing'));
 document.getElementById('helpClose').addEventListener('click', () => { helpEl.style.display = 'none'; });
 window.addEventListener('keydown', (e) => {
+  if (intro && phase === 'playing') { introTap(); return; } // any key advances the opening
   if (e.key === 'Escape' && helpEl.style.display === 'block') { helpEl.style.display = 'none'; return; }
   if (e.key === 'Escape' && inventory.isOpen()) { inventory.close(); return; }
   if (e.key === 'Escape' && dialog.isOpen()) { dialog.close(); return; }
@@ -499,11 +650,18 @@ let drawCalls = 0, triangles = 0;
 
 function simTick(dt) {
   const paused = phase !== 'playing' || shop.isOpen();
+  const cutscene = !!intro; // the egg opening: no walking, but NPCs still act
   controller.state.speedMul = combat.state.buffs.speed > 0 ? 1.45 : 1; // Zoom Juice
-  controller.update(paused ? 0 : dt); // tank controls — camera-independent
+  controller.update(paused || cutscene ? 0 : dt); // tank controls — camera-independent
   const s = controller.state;
   const airGap = Math.max(0, s.pos.y - fieldRef.heightAt(s.pos.x, s.pos.z));
-  coal.animate(dt, paused ? 0 : s.speed, s.grounded, airGap);
+  coal.animate(dt, paused || cutscene ? 0 : s.speed, s.grounded, airGap);
+  if (!paused && cutscene) {
+    npcs.update(dt, controller.state); // Storm's entrance
+    updateIntro(dt);
+    simTime += dt;
+    return;
+  }
   if (!paused) {
     combat.update(dt);
     if (fishing) {
@@ -605,7 +763,7 @@ function frame(now) {
   walkMarker.visible = !!wt;
   if (wt) walkMarker.scale.setScalar(1 + Math.sin(now * 0.008) * 0.15);
 
-  coal.root.visible = !fpView; // in first person you ARE Coal
+  coal.root.visible = !fpView && !(intro && !intro.showCoal); // FP, or still in the egg
   renderer.render(scene, camera.cam);
   frameMs[frameIdx] = dt * 1000; // wall frame time
   frameIdx = (frameIdx + 1) % frameMs.length; frameCount++;

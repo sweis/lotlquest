@@ -129,6 +129,22 @@
   }
   #fpBtn:hover { background: #ffffff; }
 
+  /* the egg-intro story card */
+  #eggBanner {
+    position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%);
+    display: none; min-width: 300px; max-width: 78vw;
+    background: rgba(250,250,252,.96); border-radius: 16px;
+    padding: 18px 26px 14px; text-align: center;
+    box-shadow: 0 8px 30px rgba(8,14,22,.35);
+  }
+  #eggSpeaker {
+    font-size: 12px; font-weight: 700; letter-spacing: .12em; color: #7a4ae0;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+  #eggSpeaker:empty { display: none; }
+  #eggText { font-size: 21px; font-weight: 600; color: #26303c; line-height: 1.35; }
+  #eggHint { margin-top: 10px; font-size: 12px; color: #8b95a1; }
+
   /* HUD: hearts + tokens + weapon — upper right, under the help button */
   #hud {
     position: absolute; top: 58px; right: 14px; display: none; flex-direction: column;
@@ -228,6 +244,11 @@
 <button id="helpBtn" class="ui">?</button>
 <button id="bagBtn" class="ui">🎒</button>
 <button id="fpBtn" class="ui" title="First-person view (V)">👁</button>
+<div id="eggBanner" class="ui" onclick="window.__introTap && window.__introTap()">
+  <div id="eggSpeaker"></div>
+  <div id="eggText"></div>
+  <div id="eggHint">tap or press any key</div>
+</div>
 <div id="hud" class="ui">
   <div id="hearts"></div>
   <div id="tokenRow"><span class="coin"></span><span id="tokenCount">0</span></div>
